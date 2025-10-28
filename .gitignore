@@ -32,3 +32,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# migration scripts
+scripts/migration/data/
+scripts/migration/node_modules/
+scripts/migration/dist/
+scripts/migration/.env
