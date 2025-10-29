@@ -1,0 +1,647 @@
+openapi: 3.0.3
+info:
+  title: WAGDIE Page Wireframes API
+  version: 1.0.0
+  description: API endpoints for WAGDIE web application pages
+
+servers:
+  - url: http://localhost:3000
+    description: Local development
+  - url: https://wagdie.vercel.app
+    description: Production
+
+paths:
+  # ==================== Authentication Endpoints ====================
+
+  /api/auth/nonce:
+    get:
+      summary: Generate SIWE nonce
+      description: Generates a unique nonce for Sign-In With Ethereum authentication
+      tags:
+        - Authentication
+      responses:
+        '200':
+          description: Nonce generated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  nonce:
+                    type: string
+                    example: "a1b2c3d4e5f6"
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/auth/verify:
+    post:
+      summary: Verify SIWE signature
+      description: Verifies SIWE message and signature, creates session
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - message
+                - signature
+              properties:
+                message:
+                  type: string
+                  description: SIWE message
+                signature:
+                  type: string
+                  description: Signed message
+      responses:
+        '200':
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  address:
+                    type: string
+                    example: "0x1234...5678"
+                  success:
+                    type: boolean
+                    example: true
+        '401':
+          description: Invalid signature
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/auth/me:
+    get:
+      summary: Get current session
+      description: Returns current authenticated user session data
+      tags:
+        - Authentication
+      responses:
+        '200':
+          description: Session data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSession'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/auth/logout:
+    post:
+      summary: Logout
+      description: Destroys current session
+      tags:
+        - Authentication
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+
+  # ==================== Character Endpoints ====================
+
+  /api/characters:
+    get:
+      summary: List characters
+      description: Get paginated list of characters with filters
+      tags:
+        - Characters
+      parameters:
+        - name: tab
+          in: query
+          schema:
+            type: string
+            enum: [all, owned, infected, cured, staked]
+            default: all
+          description: Filter by ownership/status
+        - name: wallet
+          in: query
+          schema:
+            type: string
+          description: Filter by specific wallet address
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+          description: Sort by token ID
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: perPage
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        '200':
+          description: Characters retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  characters:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Character'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '400':
+          description: Invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/characters/{tokenId}:
+    get:
+      summary: Get character by token ID
+      description: Retrieve single character with full details
+      tags:
+        - Characters
+      parameters:
+        - name: tokenId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 6666
+      responses:
+        '200':
+          description: Character retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Character'
+        '404':
+          description: Character not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    patch:
+      summary: Update character
+      description: Update character data (requires ownership)
+      tags:
+        - Characters
+      parameters:
+        - name: tokenId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                background_story:
+                  type: string
+                  maxLength: 5000
+                equipment:
+                  type: object
+      responses:
+        '200':
+          description: Character updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Character'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not owner of character
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Character not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/characters/{tokenId}/concords:
+    get:
+      summary: Get character concords
+      description: List all concords owned by character
+      tags:
+        - Characters
+      parameters:
+        - name: tokenId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Concords retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CharacterConcord'
+
+  # ==================== Tweet Endpoints ====================
+
+  /api/tweets:
+    get:
+      summary: List tweets
+      description: Get paginated feed of official lore tweets
+      tags:
+        - Lore
+      parameters:
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+          description: Sort by created_at timestamp
+        - name: mediaType
+          in: query
+          schema:
+            type: string
+            enum: [all, text, video, image]
+            default: all
+          description: Filter by media type
+        - name: perPage
+          in: query
+          schema:
+            type: integer
+            default: 25
+            maximum: 100
+        - name: startAt
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Pagination cursor (ISO 8601 timestamp)
+      responses:
+        '200':
+          description: Tweets retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tweets:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Tweet'
+                  hasMore:
+                    type: boolean
+                  nextCursor:
+                    type: string
+                    format: date-time
+
+  # ==================== Location Endpoints ====================
+
+  /api/locations:
+    get:
+      summary: List locations
+      description: Get all available in-game locations
+      tags:
+        - Chat
+      responses:
+        '200':
+          description: Locations retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Location'
+
+  /api/locations/{locationId}/users:
+    get:
+      summary: Get online users in location
+      description: List all users currently in a location (from Firebase)
+      tags:
+        - Chat
+      parameters:
+        - name: locationId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Users retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserPresence'
+
+components:
+  schemas:
+    Character:
+      type: object
+      required:
+        - token_id
+        - owner_address
+        - level
+        - experience
+        - str
+        - dex
+        - con
+        - int
+        - wis
+        - cha
+        - hp
+        - max_hp
+        - ac
+        - speed
+        - infection_status
+        - staking_status
+        - image_url
+      properties:
+        token_id:
+          type: integer
+          minimum: 1
+          maximum: 6666
+        owner_address:
+          type: string
+          pattern: "^0x[a-fA-F0-9]{40}$"
+        name:
+          type: string
+          nullable: true
+        class:
+          type: string
+          enum: [Warrior, Mage, Rogue, Cleric]
+          nullable: true
+        level:
+          type: integer
+          minimum: 1
+          maximum: 20
+        experience:
+          type: integer
+          minimum: 0
+        str:
+          type: integer
+          minimum: 1
+          maximum: 20
+        dex:
+          type: integer
+          minimum: 1
+          maximum: 20
+        con:
+          type: integer
+          minimum: 1
+          maximum: 20
+        int:
+          type: integer
+          minimum: 1
+          maximum: 20
+        wis:
+          type: integer
+          minimum: 1
+          maximum: 20
+        cha:
+          type: integer
+          minimum: 1
+          maximum: 20
+        hp:
+          type: integer
+          minimum: 1
+        max_hp:
+          type: integer
+          minimum: 1
+        ac:
+          type: integer
+          minimum: 10
+          maximum: 25
+        speed:
+          type: integer
+          minimum: 10
+          maximum: 50
+        background_story:
+          type: string
+          maxLength: 5000
+          nullable: true
+        equipment:
+          type: object
+          nullable: true
+        location_id:
+          type: string
+          nullable: true
+        infection_status:
+          type: string
+          enum: [healthy, infected, cured]
+        staking_status:
+          type: string
+          enum: [unstaked, staked]
+        image_url:
+          type: string
+          format: uri
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CharacterConcord:
+      type: object
+      required:
+        - concord_id
+        - name
+        - quantity
+        - is_seared
+      properties:
+        concord_id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+        image_url:
+          type: string
+          format: uri
+        quantity:
+          type: integer
+          minimum: 1
+        is_seared:
+          type: boolean
+        seared_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    Tweet:
+      type: object
+      required:
+        - tweet_id
+        - text
+        - author_username
+        - created_at
+        - is_reply
+        - is_retweet
+      properties:
+        tweet_id:
+          type: string
+        text:
+          type: string
+        author_username:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        media_type:
+          type: string
+          enum: [none, image, video]
+        media_url:
+          type: string
+          format: uri
+          nullable: true
+        video_url:
+          type: string
+          format: uri
+          nullable: true
+        engagement_count:
+          type: object
+          properties:
+            likes:
+              type: integer
+            retweets:
+              type: integer
+            replies:
+              type: integer
+        is_reply:
+          type: boolean
+        is_retweet:
+          type: boolean
+
+    Location:
+      type: object
+      required:
+        - location_id
+        - name
+        - is_active
+      properties:
+        location_id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        is_active:
+          type: boolean
+
+    UserSession:
+      type: object
+      required:
+        - address
+      properties:
+        address:
+          type: string
+          pattern: "^0x[a-fA-F0-9]{40}$"
+        selectedCharacter:
+          type: integer
+          nullable: true
+        expires:
+          type: integer
+          description: Unix timestamp
+
+    UserPresence:
+      type: object
+      required:
+        - token_id
+        - status
+        - last_active
+      properties:
+        token_id:
+          type: integer
+        status:
+          type: string
+          enum: [online, away, offline]
+        location_id:
+          type: string
+          nullable: true
+        last_active:
+          type: integer
+          description: Unix timestamp (ms)
+
+    Pagination:
+      type: object
+      required:
+        - page
+        - perPage
+        - total
+        - hasMore
+      properties:
+        page:
+          type: integer
+        perPage:
+          type: integer
+        total:
+          type: integer
+        hasMore:
+          type: boolean
+
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        code:
+          type: string
+
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: wagdie-session
+
+security:
+  - cookieAuth: []

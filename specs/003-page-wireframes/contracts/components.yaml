@@ -1,0 +1,497 @@
+# Component Prop Interfaces: Page Wireframes
+
+# This file documents TypeScript interfaces for all React components
+# Generated from functional requirements in spec.md
+
+## Layout Components
+
+### Header (MenuBar)
+```typescript
+interface HeaderProps {
+  // No props - uses client-side state for wallet connection
+}
+```
+
+### Navigation (MenuDrawer)
+```typescript
+interface NavigationProps {
+  isOpen: boolean
+  onClose: () => void
+}
+```
+
+### Footer
+```typescript
+interface FooterProps {
+  // No props - static content
+}
+```
+
+## Home Page Components
+
+### VideoPlayer
+```typescript
+interface VideoPlayerProps {
+  videoSrc: string            // Video file URL
+  posterSrc: string           // Preview image URL
+  autoplay?: boolean          // Auto-play on load (default: false)
+  className?: string          // Tailwind classes
+}
+```
+
+### HomeCard
+```typescript
+interface HomeCardProps {
+  title: string               // Card title
+  description: string         // Card description text
+  imageSrc: string            // Card image URL
+  href?: string               // Link destination (internal or external)
+  isExternal?: boolean        // Opens in new tab (default: false)
+}
+```
+
+### HomeCardRow
+```typescript
+interface HomeCardRowProps {
+  title: string               // Section title
+  children: React.ReactNode   // HomeCard components
+  className?: string
+}
+```
+
+## Character Components
+
+### TokenFilterBar
+```typescript
+interface TokenFilterBarProps {
+  currentTab: 'all' | 'owned' | 'infected' | 'cured' | 'staked'
+  currentSort: 'asc' | 'desc'
+  onTabChange: (tab: string) => void
+  onSortChange: (sort: 'asc' | 'desc') => void
+  walletAddress?: string      // For "owned" filter
+}
+```
+
+### TokenFeed
+```typescript
+interface TokenFeedProps {
+  characters: Character[]
+  hasMore: boolean
+  onLoadMore: () => void
+  isLoading: boolean
+}
+```
+
+### CharacterCard
+```typescript
+interface CharacterCardProps {
+  character: {
+    token_id: number
+    image_url: string
+    infection_status: 'healthy' | 'infected' | 'cured'
+    staking_status: 'unstaked' | 'staked'
+  }
+  onClick?: () => void
+}
+```
+
+### SheetMenuBar
+```typescript
+interface SheetMenuBarProps {
+  tokenId: number
+  isOwner: boolean
+  isEditMode: boolean
+  onEditToggle: () => void
+  onSave: () => Promise<void>
+  onRollNew: () => void
+  onBack: () => void
+}
+```
+
+### SheetTitleAndAttributes
+```typescript
+interface SheetTitleAndAttributesProps {
+  character: {
+    token_id: number
+    name?: string
+    class?: string
+    level: number
+    experience: number
+    str: number
+    dex: number
+    con: number
+    int: number
+    wis: number
+    cha: number
+    hp: number
+    max_hp: number
+    ac: number
+    speed: number
+  }
+  isEditMode: boolean
+}
+```
+
+### SheetBackgroundStory
+```typescript
+interface SheetBackgroundStoryProps {
+  story: string | null
+  isEditMode: boolean
+  isOwner: boolean
+  onChange: (story: string) => void
+}
+```
+
+### SheetEquipment
+```typescript
+interface SheetEquipmentProps {
+  equipment: {
+    weapon?: string
+    armor?: string
+    shield?: string
+    items?: string[]
+    gold?: number
+  }
+  isEditMode: boolean
+}
+```
+
+## Chat Components
+
+### ChannelSelector
+```typescript
+interface ChannelSelectorProps {
+  currentLocation: string
+  selectedCharacter?: number
+  onShowUsers: () => void
+}
+```
+
+### ChatMessages
+```typescript
+interface ChatMessagesProps {
+  messages: ChatMessage[]
+  isLoading: boolean
+}
+
+interface ChatMessage {
+  message_id: string
+  sender_token_id: number
+  sender_name: string
+  sender_class: string
+  sender_level: number
+  text: string
+  timestamp: number
+}
+```
+
+### ChatFooter
+```typescript
+interface ChatFooterProps {
+  onSendMessage: (text: string) => Promise<void>
+  disabled: boolean           // True if no character selected
+}
+```
+
+### ChatUsers
+```typescript
+interface ChatUsersProps {
+  users: UserPresence[]
+  isOpen: boolean
+  onClose: () => void
+}
+
+interface UserPresence {
+  token_id: number
+  status: 'online' | 'away' | 'offline'
+  character_name: string
+  character_level: number
+  character_class: string
+}
+```
+
+## Lore Components
+
+### TweetFilterBar
+```typescript
+interface TweetFilterBarProps {
+  currentTab: 'all' | 'text' | 'video'
+  currentSort: 'asc' | 'desc'
+  translationEnabled: boolean
+  onTabChange: (tab: string) => void
+  onSortChange: (sort: string) => void
+  onTranslationToggle: () => void
+}
+```
+
+### CustomTweet
+```typescript
+interface CustomTweetProps {
+  tweet: {
+    tweet_id: string
+    text: string
+    author_username: string
+    created_at: string
+    media_type: 'none' | 'image' | 'video'
+    media_url?: string
+    video_url?: string
+    engagement_count?: {
+      likes: number
+      retweets: number
+      replies: number
+    }
+  }
+  translationEnabled: boolean
+}
+```
+
+## Spread Components
+
+### DialogSpreadingApproval
+```typescript
+interface DialogSpreadingApprovalProps {
+  isOpen: boolean
+  onClose: () => void
+  onApprove: () => Promise<void>
+  contractAddress: string
+}
+```
+
+### DialogBurnCorpseApproval
+```typescript
+interface DialogBurnCorpseApprovalProps {
+  isOpen: boolean
+  onClose: () => void
+  onConfirm: (amount: number) => Promise<void>
+  availableCorpses: number
+}
+```
+
+### SpreadInfect
+```typescript
+interface SpreadInfectProps {
+  mushroomBalance: number
+  corpseBalance: number
+  mode: 'spread' | 'infect'
+  onSpread: (amount: number) => Promise<void>
+  onInfect: (tokenId: number) => Promise<void>
+  infectionPrice: string      // ETH amount as string
+}
+```
+
+## Shared Components
+
+### BannerHeader
+```typescript
+interface BannerHeaderProps {
+  title: string
+  subtitle?: string
+  className?: string
+}
+```
+
+### DialogMask
+```typescript
+interface DialogMaskProps {
+  isOpen: boolean
+  onClose: () => void
+  children: React.ReactNode
+  showCloseButton?: boolean
+}
+```
+
+### InfiniteScroll
+```typescript
+interface InfiniteScrollProps {
+  hasMore: boolean
+  isLoading: boolean
+  onLoadMore: () => void
+  children: React.ReactNode
+  loader?: React.ReactNode
+}
+```
+
+## Wallet Components (Existing)
+
+### WalletButton
+```typescript
+interface WalletButtonProps {
+  // Provided by RainbowKit - no custom props
+}
+```
+
+### UserDropdown
+```typescript
+interface UserDropdownProps {
+  address: string
+  onDisconnect: () => void
+}
+```
+
+## Service Layer Interfaces
+
+### character-service.ts
+```typescript
+interface CharacterService {
+  getCharacters(filters: CharacterFilters): Promise<Character[]>
+  getCharacter(tokenId: number): Promise<Character>
+  updateCharacter(tokenId: number, data: Partial<Character>): Promise<Character>
+  getCharacterConcords(tokenId: number): Promise<CharacterConcord[]>
+}
+
+interface CharacterFilters {
+  tab?: 'all' | 'owned' | 'infected' | 'cured' | 'staked'
+  wallet?: string
+  sort?: 'asc' | 'desc'
+  page?: number
+  perPage?: number
+}
+```
+
+### chat-service.ts
+```typescript
+interface ChatService {
+  sendMessage(locationId: string, message: Omit<ChatMessage, 'message_id' | 'timestamp'>): Promise<void>
+  subscribeToLocation(locationId: string, callback: (messages: ChatMessage[]) => void): () => void
+  updatePresence(tokenId: number, status: 'online' | 'away', locationId?: string): Promise<void>
+  subscribeToUsers(locationId: string, callback: (users: UserPresence[]) => void): () => void
+}
+```
+
+### tweet-service.ts
+```typescript
+interface TweetService {
+  getTweets(filters: TweetFilters): Promise<{tweets: Tweet[], hasMore: boolean, nextCursor?: string}>
+}
+
+interface TweetFilters {
+  sort?: 'asc' | 'desc'
+  mediaType?: 'all' | 'text' | 'video' | 'image'
+  perPage?: number
+  startAt?: string
+}
+```
+
+### wallet-service.ts
+```typescript
+interface WalletService {
+  burnCorpses(amount: number): Promise<TransactionReceipt>
+  spreadInfections(amount: number): Promise<TransactionReceipt>
+  infectWagdie(tokenId: number, value: bigint): Promise<TransactionReceipt>
+  cureCharacter(tokenId: number): Promise<TransactionReceipt>
+  searConcord(tokenId: number, concordId: number): Promise<TransactionReceipt>
+  getCorpseBalance(address: string): Promise<number>
+  getMushroomBalance(tokenId: number): Promise<number>
+  getInfectionPrice(): Promise<bigint>
+}
+
+interface TransactionReceipt {
+  hash: string
+  status: 'success' | 'reverted'
+  blockNumber: number
+}
+```
+
+## Custom Hooks
+
+### useCurrentUser
+```typescript
+function useCurrentUser(): {
+  user: UserSession | null
+  isLoading: boolean
+  error: Error | null
+}
+```
+
+### useCharacterLocation
+```typescript
+function useCharacterLocation(tokenId: number): {
+  location: Location | null
+  isLoading: boolean
+  error: Error | null
+}
+```
+
+### useInfiniteScroll
+```typescript
+function useInfiniteScroll<T>(
+  fetchFn: (page: number) => Promise<{items: T[], hasMore: boolean}>,
+  options?: {
+    initialPage?: number
+    enabled?: boolean
+  }
+): {
+  data: T[]
+  hasMore: boolean
+  isLoading: boolean
+  loadMore: () => void
+  error: Error | null
+}
+```
+
+### useWebSocket (Firebase)
+```typescript
+function useWebSocket<T>(
+  path: string,
+  options?: {
+    enabled?: boolean
+  }
+): {
+  data: T | null
+  isConnected: boolean
+  error: Error | null
+}
+```
+
+## Type Exports
+
+All types should be exported from centralized locations:
+
+```typescript
+// types/character.ts
+export type { Character, CharacterConcord, CharacterFilters }
+
+// types/tweet.ts
+export type { Tweet, TweetFilters }
+
+// types/chat.ts
+export type { ChatMessage, UserPresence, Location }
+
+// types/wallet.ts
+export type { UserSession, TransactionReceipt }
+```
+
+## Validation Schemas (Zod)
+
+For runtime validation, use Zod schemas:
+
+```typescript
+// lib/validation/character.schema.ts
+import { z } from 'zod'
+
+export const CharacterSchema = z.object({
+  token_id: z.number().int().min(1).max(6666),
+  owner_address: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+  level: z.number().int().min(1).max(20),
+  // ... all fields from data-model.md
+})
+
+export const UpdateCharacterSchema = z.object({
+  background_story: z.string().max(5000).optional(),
+  equipment: z.record(z.any()).optional(),
+})
+
+// Use in API routes
+export type Character = z.infer<typeof CharacterSchema>
+export type UpdateCharacterInput = z.infer<typeof UpdateCharacterSchema>
+```
+
+## Notes
+
+1. **Strict TypeScript**: All components use explicit prop interfaces, no `any` types
+2. **Nullable handling**: Use `| null` for nullable fields, `?` for optional props
+3. **Enums**: Use string literal unions for status/type fields
+4. **Validation**: API routes validate inputs with Zod before processing
+5. **Error types**: All async operations should use try/catch with typed errors
+6. **React Query**: Use typed hooks for data fetching (`useQuery<Character[]>`)
+7. **wagmi hooks**: All blockchain calls use typed wagmi hooks with proper generics
