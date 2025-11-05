@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import type { CharacterLocation } from '@/lib/types/map';
 
 interface CharacterListPanelProps {
@@ -10,7 +10,7 @@ interface CharacterListPanelProps {
   onClose?: () => void;
 }
 
-export function CharacterListPanel({
+const CharacterListPanelComponent = function CharacterListPanel({
   characters,
   connectedWallet,
   onCharacterSelect,
@@ -99,35 +99,46 @@ export function CharacterListPanel({
   };
 
   return (
-    <div className="bg-shadow border-2 border-gold rounded-lg p-3 sm:p-4 max-w-full sm:max-w-sm shadow-2xl">
+    <div
+      className="bg-shadow border-2 border-gold rounded-lg p-3 sm:p-4 max-w-full sm:max-w-sm shadow-2xl"
+      role="region"
+      aria-label="Character list panel"
+    >
       {/* Header */}
       <div className="flex justify-between items-center mb-3 sm:mb-4">
         <h3 className="font-wagdie text-gold text-base sm:text-lg font-bold tracking-wide">
           Your Characters
         </h3>
-        <div className="text-xs font-wagdie text-mist bg-midnight px-2 py-1 rounded">
+        <div className="text-xs font-wagdie text-mist bg-midnight px-2 py-1 rounded" aria-label={`${userCharacters.length} characters`}>
           {userCharacters.length}
         </div>
       </div>
 
       {/* Character List */}
-      <div className="space-y-2 max-h-[60vh] sm:max-h-96 overflow-y-auto pr-1 sm:pr-2">
-        {userCharacters.map((character) => (
+      <div
+        className="space-y-2 max-h-[60vh] sm:max-h-96 overflow-y-auto pr-1 sm:pr-2"
+        role="list"
+        aria-label="Your characters"
+      >
+        {userCharacters.map((character, index) => (
           <button
             key={character.character_token_id}
             onClick={() => handleCharacterClick(character)}
-            className={`w-full text-left p-2 sm:p-3 rounded-lg border-2 transition-all min-h-[44px] ${
+            className={`w-full text-left p-2 sm:p-3 rounded-lg border-2 transition-all min-h-[44px] focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-abyss ${
               selectedCharacter === character.character_token_id
                 ? 'border-gold bg-gold/10'
                 : 'border-midnight bg-midnight hover:border-gold/50'
             }`}
+            role="listitem"
+            aria-label={`Character ${character.character_token_id}, status ${character.status}`}
+            aria-describedby={`character-${character.character_token_id}-details`}
           >
             {/* Character Header */}
             <div className="flex justify-between items-start mb-1 sm:mb-2">
               <div className="font-wagdie text-bone font-bold text-sm sm:text-base">
                 Character #{character.character_token_id}
               </div>
-              <div className={`text-xs font-wagdie font-semibold ${getStatusColor(character.status)}`}>
+              <div className={`text-xs font-wagdie font-semibold ${getStatusColor(character.status)}`} aria-label={`Status: ${character.status}`}>
                 {character.status}
               </div>
             </div>
@@ -139,6 +150,7 @@ export function CharacterListPanel({
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
+                aria-hidden="true"
               >
                 <path
                   strokeLinecap="round"
@@ -158,6 +170,14 @@ export function CharacterListPanel({
               </span>
             </div>
 
+            {/* Hidden details for screen readers */}
+            <div id={`character-${character.character_token_id}-details`} className="sr-only">
+              <div>Location: {character.location?.name || 'Unknown'}</div>
+              <div>Wallet: {character.wallet_address.slice(0, 6)}...{character.wallet_address.slice(-4)}</div>
+              <div>Status: {character.status}</div>
+              {selectedCharacter === character.character_token_id && <div>Selected - Center on Map</div>}
+            </div>
+
             {/* Wallet */}
             <div className="flex items-center gap-2">
               <svg
@@ -165,6 +185,7 @@ export function CharacterListPanel({
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
+                aria-hidden="true"
               >
                 <path
                   strokeLinecap="round"
@@ -200,3 +221,6 @@ export function CharacterListPanel({
     </div>
   );
 }
+
+// Memoize the component to prevent unnecessary re-renders
+export const CharacterListPanel = memo(CharacterListPanelComponent);

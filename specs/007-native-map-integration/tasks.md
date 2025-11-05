@@ -324,10 +324,23 @@ description: "Task breakdown for Native Map Integration - Current implementation
 
 **Purpose**: Final improvements, performance optimization, and documentation
 
-- [ ] T046 [P] Implement Error Boundary component in components/shared/ErrorBoundary.tsx
-- [ ] T047 [P] Add React.memo to SimpleMap and marker components for performance
+- [x] T046 [P] Implement Error Boundary component in components/shared/ErrorBoundary.tsx ✅
+  - Enhanced WAGDIE-themed error UI ✅
+  - Retry and reload functionality ✅
+  - Collapsible error details ✅
+  - Production-ready error reporting ✅
+- [x] T047 [P] Add React.memo to SimpleMap and marker components for performance ✅
+  - Memoized SimpleMap with custom comparison ✅
+  - Memoized CharacterListPanel component ✅
+  - Memoized MapPopup component ✅
 - [ ] T048 [P] Implement marker clustering for performance with 50+ markers
-- [ ] T049 [P] Add keyboard navigation and accessibility features
+- [x] T049 [P] Add keyboard navigation and accessibility features ✅
+  - Skip to content link ✅
+  - Keyboard shortcuts (L for locations, C for characters, Escape to close) ✅
+  - ARIA labels and roles throughout ✅
+  - Focus management with visible focus rings ✅
+  - Screen reader descriptions for all interactive elements ✅
+  - Live regions for status announcements ✅
 - [ ] T050 Update components/map/README.md with native map documentation
 - [ ] T051 [P] Compress wagdiemap.png from 9.3MB to <3MB for web performance
 - [ ] T052 [P] Add comprehensive loading states throughout map experience

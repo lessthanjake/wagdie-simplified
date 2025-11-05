@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import type { Location, CharacterLocation } from '@/lib/types/map';
 
 interface MapPopupProps {
@@ -9,7 +10,7 @@ interface MapPopupProps {
   connectedWallet?: string | null; // Connected wallet address for ownership check
 }
 
-export function MapPopup({ data, type, onClose, connectedWallet }: MapPopupProps) {
+const MapPopupComponent = function MapPopup({ data, type, onClose, connectedWallet }: MapPopupProps) {
   if (!data) return null;
 
   const isLocation = type === 'location';
@@ -184,3 +185,6 @@ export function MapPopup({ data, type, onClose, connectedWallet }: MapPopupProps
     </div>
   );
 }
+
+// Memoize the component to prevent unnecessary re-renders
+export const MapPopup = memo(MapPopupComponent);
