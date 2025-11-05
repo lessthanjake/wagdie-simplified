@@ -75,6 +75,21 @@ export const SimpleMap = forwardRef<SimpleMapRef, SimpleMapProps>(({ locations, 
     };
   }, []);
 
+  // Helper function to get responsive icon sizes for touch targets
+  const getIconSizes = (isMobile: boolean, baseSize: [number, number]) => {
+    // Minimum touch target size: 44px (Apple/Google guidelines)
+    const minTouchSize = 44;
+    const scaleFactor = isMobile ? 1.5 : 1;
+    const size = Math.max(baseSize[0] * scaleFactor, minTouchSize);
+    return [size, size] as [number, number];
+  };
+
+  // Detect mobile/tablet
+  const isMobileOrTablet = () => {
+    if (typeof window === 'undefined') return false;
+    return window.innerWidth <= 1024;
+  };
+
   useEffect(() => {
     if (!mapInstanceRef.current) return;
 
@@ -102,19 +117,21 @@ export const SimpleMap = forwardRef<SimpleMapRef, SimpleMapProps>(({ locations, 
           (bounds[0][1] + bounds[1][1]) / 2,
         ];
 
-        // Create custom icon using WAGDIE icon
+        // Create custom icon using WAGDIE icon with touch-friendly sizing
+        const isMobile = isMobileOrTablet();
+        const locationIconSize = getIconSizes(isMobile, [32, 32]);
         const locationIcon = L.icon({
           iconUrl: '/images/map-icons/icon_location.png',
-          iconSize: [32, 32],
-          iconAnchor: [16, 32],
-          popupAnchor: [0, -32],
+          iconSize: locationIconSize,
+          iconAnchor: [locationIconSize[0] / 2, locationIconSize[1]],
+          popupAnchor: [0, -locationIconSize[1]],
         });
 
         const marker = L.marker(center, {
           icon: locationIcon,
         });
 
-        // Add tooltip on hover
+        // Add tooltip on hover with mobile-friendly positioning
         marker.bindTooltip(
           `<div style="font-family: 'Wagdie_Fraktur_21', serif;">
             <strong>${location.name}</strong><br/>
@@ -122,8 +139,11 @@ export const SimpleMap = forwardRef<SimpleMapRef, SimpleMapProps>(({ locations, 
           </div>`,
           {
             direction: 'top',
-            offset: [0, -32],
+            offset: [0, -locationIconSize[1]],
             className: 'custom-tooltip',
+            // Improve touch interaction
+            permanent: false,
+            opacity: isMobile ? 0.9 : 0.8,
           }
         );
 
@@ -195,19 +215,21 @@ export const SimpleMap = forwardRef<SimpleMapRef, SimpleMapProps>(({ locations, 
           (bounds[0][1] + bounds[1][1]) / 2,
         ];
 
-        // Create custom icon using WAGDIE icon
+        // Create custom icon using WAGDIE icon with touch-friendly sizing
+        const isMobile = isMobileOrTablet();
+        const characterIconSize = getIconSizes(isMobile, [24, 24]);
         const characterIcon = L.icon({
-          iconUrl: '/images/map-icons/icon_youarehere.png',
-          iconSize: [24, 24],
-          iconAnchor: [12, 24],
-          popupAnchor: [0, -24],
+          iconUrl: '/images/map-icons/icon_character.png',
+          iconSize: characterIconSize,
+          iconAnchor: [characterIconSize[0] / 2, characterIconSize[1]],
+          popupAnchor: [0, -characterIconSize[1]],
         });
 
         const marker = L.marker(center, {
           icon: characterIcon,
         });
 
-        // Add tooltip on hover
+        // Add tooltip on hover with mobile-friendly positioning
         marker.bindTooltip(
           `<div style="font-family: 'Wagdie_Fraktur_21', serif;">
             <strong>Character #${charLocation.character_token_id}</strong><br/>
@@ -215,8 +237,11 @@ export const SimpleMap = forwardRef<SimpleMapRef, SimpleMapProps>(({ locations, 
           </div>`,
           {
             direction: 'top',
-            offset: [0, -24],
+            offset: [0, -characterIconSize[1]],
             className: 'custom-tooltip',
+            // Improve touch interaction
+            permanent: false,
+            opacity: isMobile ? 0.9 : 0.8,
           }
         );
 
@@ -289,45 +314,45 @@ export const SimpleMap = forwardRef<SimpleMapRef, SimpleMapProps>(({ locations, 
     <>
       <div ref={mapRef} className="w-full h-full" />
 
-      {/* Layer Controls */}
-      <div className="fixed top-4 right-20 z-30 bg-shadow border-2 border-gold rounded-lg p-4 shadow-2xl">
-        <div className="flex flex-col gap-3">
-          <h3 className="font-wagdie text-gold text-sm font-bold mb-2 tracking-wide">Map Layers</h3>
+      {/* Layer Controls - Responsive for mobile/tablet */}
+      <div className="fixed top-4 right-4 sm:right-20 z-30 bg-shadow border-2 border-gold rounded-lg p-3 sm:p-4 shadow-2xl max-w-[calc(100vw-2rem)] sm:max-w-sm">
+        <div className="flex flex-col gap-2 sm:gap-3">
+          <h3 className="font-wagdie text-gold text-xs sm:text-sm font-bold mb-1 sm:mb-2 tracking-wide">Map Layers</h3>
 
-          <label className="flex items-center gap-3 text-mist text-sm cursor-pointer hover:text-ember transition-all duration-200 group">
+          <label className="flex items-center gap-2 sm:gap-3 text-mist text-xs sm:text-sm cursor-pointer hover:text-ember transition-all duration-200 group min-h-[44px]">
             <img
               src="/images/map-icons/icon_location.png"
               alt="Locations"
-              className="w-6 h-6 filter drop-shadow-[0_0_3px_rgba(212,175,55,0.3)] group-hover:brightness-110 transition-all"
+              className="w-5 h-5 sm:w-6 sm:h-6 filter drop-shadow-[0_0_3px_rgba(212,175,55,0.3)] group-hover:brightness-110 transition-all"
             />
             <input
               type="checkbox"
               checked={layers.locations}
               onChange={() => toggleLayer('locations')}
-              className="ml-1 h-4 w-4 rounded border-midnight bg-shadow text-gold focus:ring-gold focus:ring-2"
+              className="ml-1 h-4 w-4 rounded border-midnight bg-shadow text-gold focus:ring-gold focus:ring-2 touch-manipulation"
             />
             <span className="font-wagdie tracking-wide">Locations</span>
           </label>
-          <label className="flex items-center gap-3 text-mist text-sm cursor-pointer hover:text-ember transition-all duration-200 group">
+          <label className="flex items-center gap-2 sm:gap-3 text-mist text-xs sm:text-sm cursor-pointer hover:text-ember transition-all duration-200 group min-h-[44px]">
             <img
               src="/images/map-icons/icon_character.png"
               alt="Characters"
-              className="w-6 h-6 filter drop-shadow-[0_0_3px_rgba(212,175,55,0.3)] group-hover:brightness-110 transition-all"
+              className="w-5 h-5 sm:w-6 sm:h-6 filter drop-shadow-[0_0_3px_rgba(212,175,55,0.3)] group-hover:brightness-110 transition-all"
             />
             <input
               type="checkbox"
               checked={layers.characters}
               onChange={() => toggleLayer('characters')}
-              className="ml-1 h-4 w-4 rounded border-midnight bg-shadow text-gold focus:ring-gold focus:ring-2"
+              className="ml-1 h-4 w-4 rounded border-midnight bg-shadow text-gold focus:ring-gold focus:ring-2 touch-manipulation"
             />
             <span className="font-wagdie tracking-wide">Characters</span>
           </label>
-          <div className="border-t border-midnight my-2"></div>
-          <label className="flex items-center gap-3 text-mist text-sm cursor-pointer hover:text-ember transition-all duration-200 group opacity-80">
+          <div className="border-t border-midnight my-1 sm:my-2"></div>
+          <label className="flex items-center gap-2 sm:gap-3 text-mist text-xs sm:text-sm cursor-pointer hover:text-ember transition-all duration-200 group opacity-80 min-h-[44px]">
             <img
               src="/images/map-icons/icon_burn.png"
               alt="Burns"
-              className="w-6 h-6 opacity-60 group-hover:opacity-80 transition-opacity"
+              className="w-5 h-5 sm:w-6 sm:h-6 opacity-60 group-hover:opacity-80 transition-opacity"
             />
             <input
               type="checkbox"
@@ -337,11 +362,11 @@ export const SimpleMap = forwardRef<SimpleMapRef, SimpleMapProps>(({ locations, 
             <span className="font-wagdie tracking-wide">Burns</span>
             <span className="text-xs text-ash font-wagdie ml-auto">(Soon)</span>
           </label>
-          <label className="flex items-center gap-3 text-mist text-sm cursor-pointer hover:text-ember transition-all duration-200 group opacity-80">
+          <label className="flex items-center gap-2 sm:gap-3 text-mist text-xs sm:text-sm cursor-pointer hover:text-ember transition-all duration-200 group opacity-80 min-h-[44px]">
             <img
               src="/images/map-icons/icon_death.png"
               alt="Deaths"
-              className="w-6 h-6 opacity-60 group-hover:opacity-80 transition-opacity"
+              className="w-5 h-5 sm:w-6 sm:h-6 opacity-60 group-hover:opacity-80 transition-opacity"
             />
             <input
               type="checkbox"
@@ -351,11 +376,11 @@ export const SimpleMap = forwardRef<SimpleMapRef, SimpleMapProps>(({ locations, 
             <span className="font-wagdie tracking-wide">Deaths</span>
             <span className="text-xs text-ash font-wagdie ml-auto">(Soon)</span>
           </label>
-          <label className="flex items-center gap-3 text-mist text-sm cursor-pointer hover:text-ember transition-all duration-200 group opacity-80">
+          <label className="flex items-center gap-2 sm:gap-3 text-mist text-xs sm:text-sm cursor-pointer hover:text-ember transition-all duration-200 group opacity-80 min-h-[44px]">
             <img
               src="/images/map-icons/icon_fight.png"
               alt="Fights"
-              className="w-6 h-6 opacity-60 group-hover:opacity-80 transition-opacity"
+              className="w-5 h-5 sm:w-6 sm:h-6 opacity-60 group-hover:opacity-80 transition-opacity"
             />
             <input
               type="checkbox"

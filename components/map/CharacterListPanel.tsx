@@ -99,10 +99,10 @@ export function CharacterListPanel({
   };
 
   return (
-    <div className="bg-shadow border-2 border-gold rounded-lg p-4 max-w-sm shadow-2xl">
+    <div className="bg-shadow border-2 border-gold rounded-lg p-3 sm:p-4 max-w-full sm:max-w-sm shadow-2xl">
       {/* Header */}
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="font-wagdie text-gold text-lg font-bold tracking-wide">
+      <div className="flex justify-between items-center mb-3 sm:mb-4">
+        <h3 className="font-wagdie text-gold text-base sm:text-lg font-bold tracking-wide">
           Your Characters
         </h3>
         <div className="text-xs font-wagdie text-mist bg-midnight px-2 py-1 rounded">
@@ -111,20 +111,20 @@ export function CharacterListPanel({
       </div>
 
       {/* Character List */}
-      <div className="space-y-2 max-h-96 overflow-y-auto pr-2">
+      <div className="space-y-2 max-h-[60vh] sm:max-h-96 overflow-y-auto pr-1 sm:pr-2">
         {userCharacters.map((character) => (
           <button
             key={character.character_token_id}
             onClick={() => handleCharacterClick(character)}
-            className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
+            className={`w-full text-left p-2 sm:p-3 rounded-lg border-2 transition-all min-h-[44px] ${
               selectedCharacter === character.character_token_id
                 ? 'border-gold bg-gold/10'
                 : 'border-midnight bg-midnight hover:border-gold/50'
             }`}
           >
             {/* Character Header */}
-            <div className="flex justify-between items-start mb-2">
-              <div className="font-wagdie text-bone font-bold">
+            <div className="flex justify-between items-start mb-1 sm:mb-2">
+              <div className="font-wagdie text-bone font-bold text-sm sm:text-base">
                 Character #{character.character_token_id}
               </div>
               <div className={`text-xs font-wagdie font-semibold ${getStatusColor(character.status)}`}>
@@ -133,9 +133,9 @@ export function CharacterListPanel({
             </div>
 
             {/* Location */}
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-2 mb-1 sm:mb-2">
               <svg
-                className="w-4 h-4 text-mist"
+                className="w-3 h-3 sm:w-4 sm:h-4 text-mist flex-shrink-0"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -153,7 +153,7 @@ export function CharacterListPanel({
                   d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
                 />
               </svg>
-              <span className="font-wagdie text-sm text-mist">
+              <span className="font-wagdie text-xs sm:text-sm text-mist truncate">
                 {character.location?.name || 'Unknown Location'}
               </span>
             </div>
@@ -161,7 +161,7 @@ export function CharacterListPanel({
             {/* Wallet */}
             <div className="flex items-center gap-2">
               <svg
-                className="w-4 h-4 text-mist"
+                className="w-3 h-3 sm:w-4 sm:h-4 text-mist flex-shrink-0"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -173,7 +173,7 @@ export function CharacterListPanel({
                   d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
                 />
               </svg>
-              <span className="font-wagdie text-xs text-ash">
+              <span className="font-wagdie text-xs text-ash truncate">
                 {character.wallet_address.slice(0, 6)}...
                 {character.wallet_address.slice(-4)}
               </span>
@@ -192,9 +192,9 @@ export function CharacterListPanel({
       </div>
 
       {/* Footer */}
-      <div className="mt-4 pt-3 border-t border-midnight">
+      <div className="mt-3 sm:mt-4 pt-2 sm:pt-3 border-t border-midnight">
         <p className="font-wagdie text-xs text-ash text-center">
-          Click a character to focus the map on their location
+          Tap a character to focus the map on their location
         </p>
       </div>
     </div>
