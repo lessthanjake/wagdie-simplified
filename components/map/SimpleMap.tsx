@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useImperativeHandle, forwardRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import type { Location, CharacterLocation, LayerVisibility, MapMarkerData } from '@/lib/types/map';
@@ -13,7 +13,12 @@ interface SimpleMapProps {
   onMarkerClick?: (marker: MapMarkerData) => void;
 }
 
-export function SimpleMap({ locations, characterLocations, layers, toggleLayer, onMarkerClick }: SimpleMapProps) {
+export interface SimpleMapRef {
+  setView: (center: [number, number], zoom?: number, options?: L.ZoomPanOptions) => void;
+  getMap: () => L.Map | null;
+}
+
+export const SimpleMap = forwardRef<SimpleMapRef, SimpleMapProps>(({ locations, characterLocations, layers, toggleLayer, onMarkerClick }, ref) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
 
@@ -270,17 +275,26 @@ export function SimpleMap({ locations, characterLocations, layers, toggleLayer, 
     }
   }, [locations, characterLocations, layers, onMarkerClick]);
 
+  // Expose map methods via ref
+  useImperativeHandle(ref, () => ({
+    setView: (center: [number, number], zoom = 1, options?: L.ZoomPanOptions) => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.setView(center, zoom, options);
+      }
+    },
+    getMap: () => mapInstanceRef.current,
+  }), []);
+
   return (
-    <div className="relative w-full h-full">
+    <>
       <div ref={mapRef} className="w-full h-full" />
 
-      {/* Enhanced Layer Controls with WAGDIE Theme */}
-      <div className="absolute top-4 right-4 bg-abyss border-2 border-gold rounded-lg p-4 shadow-xl z-[1000] backdrop-blur-sm">
-        <h3 className="font-wagdie text-gold text-sm font-bold mb-3 border-b border-midnight pb-2">
-          Map Layers
-        </h3>
-        <div className="space-y-2.5">
-          <label className="flex items-center gap-3 text-bone text-sm cursor-pointer hover:text-gold transition-all duration-200 group">
+      {/* Layer Controls */}
+      <div className="fixed top-4 right-20 z-30 bg-shadow border-2 border-gold rounded-lg p-4 shadow-2xl">
+        <div className="flex flex-col gap-3">
+          <h3 className="font-wagdie text-gold text-sm font-bold mb-2 tracking-wide">Map Layers</h3>
+
+          <label className="flex items-center gap-3 text-mist text-sm cursor-pointer hover:text-ember transition-all duration-200 group">
             <img
               src="/images/map-icons/icon_location.png"
               alt="Locations"
@@ -294,9 +308,9 @@ export function SimpleMap({ locations, characterLocations, layers, toggleLayer, 
             />
             <span className="font-wagdie tracking-wide">Locations</span>
           </label>
-          <label className="flex items-center gap-3 text-bone text-sm cursor-pointer hover:text-gold transition-all duration-200 group">
+          <label className="flex items-center gap-3 text-mist text-sm cursor-pointer hover:text-ember transition-all duration-200 group">
             <img
-              src="/images/map-icons/icon_youarehere.png"
+              src="/images/map-icons/icon_character.png"
               alt="Characters"
               className="w-6 h-6 filter drop-shadow-[0_0_3px_rgba(212,175,55,0.3)] group-hover:brightness-110 transition-all"
             />
@@ -353,6 +367,8 @@ export function SimpleMap({ locations, characterLocations, layers, toggleLayer, 
           </label>
         </div>
       </div>
-    </div>
+    </>
   );
-}
+});
+
+SimpleMap.displayName = 'SimpleMap';

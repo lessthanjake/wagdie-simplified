@@ -6,9 +6,10 @@ interface MapPopupProps {
   data: Location | CharacterLocation | null;
   type: 'location' | 'character' | 'burn' | 'death' | 'fight';
   onClose?: () => void;
+  connectedWallet?: string | null; // Connected wallet address for ownership check
 }
 
-export function MapPopup({ data, type, onClose }: MapPopupProps) {
+export function MapPopup({ data, type, onClose, connectedWallet }: MapPopupProps) {
   if (!data) return null;
 
   const isLocation = type === 'location';
@@ -16,8 +17,9 @@ export function MapPopup({ data, type, onClose }: MapPopupProps) {
 
   let title = '';
   let description = '';
-  let details: Array<{ label: string; value: string | number }> = [];
-  let actions: Array<{ label: string; onClick: () => void; variant: 'primary' | 'secondary' }> = [];
+  let details: Array<{ label: string; value: string | number | React.ReactNode }> = [];
+  let actions: Array<{ label: string; onClick: () => void; variant: 'primary' | 'secondary' | 'success'; disabled?: boolean }> = [];
+  let ownershipBadge: React.ReactNode = null;
 
   if (isLocation) {
     const location = data as Location;
@@ -32,7 +34,11 @@ export function MapPopup({ data, type, onClose }: MapPopupProps) {
     if (location.character_locations && location.character_locations.length > 0) {
       details.push({
         label: 'Characters Staked',
-        value: location.character_locations.length,
+        value: (
+          <span className="text-gold font-bold">
+            {location.character_locations.length}
+          </span>
+        ),
       });
     }
 
@@ -41,6 +47,7 @@ export function MapPopup({ data, type, onClose }: MapPopupProps) {
         label: 'Stake Character',
         onClick: () => console.log('Stake character to', location.name),
         variant: 'primary',
+        disabled: !connectedWallet,
       },
       {
         label: 'View Details',
@@ -52,25 +59,61 @@ export function MapPopup({ data, type, onClose }: MapPopupProps) {
     const charLocation = data as CharacterLocation;
     title = `Character #${charLocation.character_token_id}`;
     description = 'A WAGDIE character';
+
+    // Check if this character is owned by the connected wallet
+    const isOwnedByUser = connectedWallet &&
+      connectedWallet.toLowerCase() === charLocation.wallet_address.toLowerCase();
+
+    // Show ownership badge if user owns this character
+    if (isOwnedByUser) {
+      ownershipBadge = (
+        <div className="inline-flex items-center gap-1 bg-gold/20 border border-gold rounded-full px-2 py-1 mb-2">
+          <div className="w-2 h-2 bg-gold rounded-full animate-pulse"></div>
+          <span className="text-gold text-xs font-wagdie font-bold">YOUR CHARACTER</span>
+        </div>
+      );
+    }
+
+    const statusColor = charLocation.status === 'confirmed' ? 'text-poison' :
+                       charLocation.status === 'pending' ? 'text-ember' : 'text-mist';
+
     details = [
-      { label: 'Token ID', value: charLocation.character_token_id },
+      { label: 'Token ID', value: `#${charLocation.character_token_id}` },
       { label: 'Location', value: charLocation.location?.name || 'Unknown' },
-      { label: 'Status', value: charLocation.status },
+      { label: 'Status', value: <span className={statusColor}>{charLocation.status}</span> },
       { label: 'Wallet', value: `${charLocation.wallet_address.slice(0, 6)}...${charLocation.wallet_address.slice(-4)}` },
     ];
 
-    actions = [
-      {
-        label: 'View Character',
-        onClick: () => console.log('View character', charLocation.character_token_id),
-        variant: 'primary',
-      },
-      {
-        label: 'Move Character',
-        onClick: () => console.log('Move character', charLocation.character_token_id),
-        variant: 'secondary',
-      },
-    ];
+    // Different actions based on ownership
+    if (isOwnedByUser) {
+      actions = [
+        {
+          label: 'View Character',
+          onClick: () => console.log('View character', charLocation.character_token_id),
+          variant: 'success',
+        },
+        {
+          label: 'Unstake',
+          onClick: () => console.log('Unstake character', charLocation.character_token_id),
+          variant: 'primary',
+        },
+      ];
+    } else {
+      actions = [
+        {
+          label: 'View Character',
+          onClick: () => console.log('View character', charLocation.character_token_id),
+          variant: 'secondary',
+          disabled: !connectedWallet,
+        },
+        {
+          label: 'Stake Here',
+          onClick: () => console.log('Stake to this location', charLocation.location?.name),
+          variant: 'primary',
+          disabled: !connectedWallet,
+        },
+      ];
+    }
   }
 
   return (
@@ -88,6 +131,9 @@ export function MapPopup({ data, type, onClose }: MapPopupProps) {
           </button>
         )}
       </div>
+
+      {/* Ownership Badge */}
+      {ownershipBadge}
 
       {/* Description */}
       {description && (
@@ -113,16 +159,28 @@ export function MapPopup({ data, type, onClose }: MapPopupProps) {
           <button
             key={index}
             onClick={action.onClick}
+            disabled={action.disabled}
             className={`flex-1 py-2 px-3 rounded font-wagdie text-xs transition-all ${
-              action.variant === 'primary'
-                ? 'bg-gold text-abyss hover:bg-ember'
-                : 'bg-midnight text-bone hover:bg-shadow border border-midnight'
+              action.disabled
+                ? 'opacity-50 cursor-not-allowed bg-midnight text-mist'
+                : action.variant === 'primary'
+                  ? 'bg-gold text-abyss hover:bg-ember'
+                  : action.variant === 'success'
+                    ? 'bg-poison text-bone hover:bg-poison/80'
+                    : 'bg-midnight text-bone hover:bg-shadow border border-midnight'
             }`}
           >
             {action.label}
           </button>
         ))}
       </div>
+
+      {/* Wallet Connection Prompt */}
+      {isCharacter && !connectedWallet && (
+        <div className="mt-2 text-center">
+          <p className="text-xs text-ash font-wagdie">Connect wallet to manage characters</p>
+        </div>
+      )}
     </div>
   );
 }

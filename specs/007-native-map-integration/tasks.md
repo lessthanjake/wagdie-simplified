@@ -69,6 +69,14 @@ description: "Task breakdown for Native Map Integration - Current implementation
 - ✅ Enhanced loading animation with progress bar
 - ✅ Icon animations for layer toggle buttons
 
+**Phase 7 - User Story 5 (Character Location Display)**: 100% complete ✅
+- ✅ Character popups with ownership badges and staking options
+- ✅ Wallet connection status and character ownership check
+- ✅ "No Characters" empty state component
+- ✅ Character ownership status in popups with highlighting
+- ✅ Staking integration to character popups
+- ✅ Character list panel with click-to-focus map functionality
+
 ---
 
 ## Phase 1: Setup (Shared Infrastructure)
@@ -241,28 +249,28 @@ description: "Task breakdown for Native Map Integration - Current implementation
 
 ### Setup Tasks for User Story 5
 
-- [ ] T034 [P] [US5] Create CharacterPopup component with staking options
-  - Character details (token ID, location)
-  - Staking/unstaking action buttons
-  - Transaction status display
-- [ ] T035 [P] [US5] Integrate wallet connection status for character ownership check
-  - Connect to existing wagmi wallet context
-  - Filter character markers by connected wallet
-- [ ] T036 [P] [US5] Add "No Characters" empty state component
-  - Prompt to acquire characters
-  - Link to minting/character acquisition
+- [x] T034 [P] [US5] Create CharacterPopup component with staking options ✅
+  - Character details (token ID, location) ✅
+  - Staking/unstaking action buttons ✅
+  - Transaction status display ✅
+- [x] T035 [P] [US5] Integrate wallet connection status for character ownership check ✅
+  - Connect to existing wagmi wallet context ✅
+  - Filter character markers by connected wallet ✅
+- [x] T036 [P] [US5] Add "No Characters" empty state component ✅
+  - Prompt to acquire characters ✅
+  - Link to minting/character acquisition ✅
 
 ### Implementation for User Story 5
 
-- [ ] T037 [US5] Display character ownership status in popups
-  - Show "You own this character" for connected wallets
-  - Highlight owned characters differently
-- [ ] T038 [US5] Add staking integration to character popups
-  - Connect to staking contract
-  - Show staking transaction flow
-- [ ] T039 [US5] Add character list panel (optional)
-  - Sidebar with user's characters
-  - Click to focus map on character
+- [x] T037 [US5] Display character ownership status in popups ✅
+  - Show "You own this character" for connected wallets ✅
+  - Highlight owned characters differently ✅
+- [x] T038 [US5] Add staking integration to character popups ✅
+  - Connect to staking contract ✅
+  - Show staking transaction flow ✅
+- [x] T039 [US5] Add character list panel (optional) ✅
+  - Sidebar with user's characters ✅
+  - Click to focus map on character ✅
 
 **Checkpoint**: User Story 5 fully functional - authenticated users see their characters with detailed info and staking options
 
@@ -383,20 +391,24 @@ User Story 1 (Native Map Display) is working - the map has replaced the iframe a
 
 ### Recommended Next Steps (Priority Order)
 
-**HIGH Priority (Week 1): Complete User Story 2**
-- Task T015: Replace divIcons with WAGDIE icons
-- Task T016: Create MapTooltip component
-- Task T017: Create MapPopup component
-- Tasks T018-T020: Add hover and click interactions
-
-**MEDIUM Priority (Week 2): Complete User Stories 3 & 4**
-- User Story 3: Layer Controls with WAGDIE icons and burn/death/fight markers
-- User Story 4: Asset Integration with WAGDIE fonts and animations
-
-**LOW Priority (Week 3-4): Complete User Stories 5 & 6**
-- User Story 5: Character Location Display with staking integration
+**HIGH Priority (Week 1-2): Complete User Story 6**
 - User Story 6: Responsive Design for mobile/tablet
-- User Story 7: Polish and documentation
+  - T040: Test and fix mobile touch interactions for markers
+  - T041: Test and fix tablet landscape/portrait layouts
+  - T042: Optimize layer controls for mobile screen size
+  - T043: Ensure popups and tooltips display properly on small screens
+  - T044: Add mobile-specific CSS for map controls
+  - T045: Test performance with marker clustering for mobile
+
+**MEDIUM Priority (Week 3): Phase 9 - Polish & Cross-Cutting Concerns**
+- T046: Implement Error Boundary component
+- T047: Add React.memo to SimpleMap and marker components for performance
+- T048: Implement marker clustering for performance with 50+ markers
+- T049: Add keyboard navigation and accessibility features
+- T051: Compress wagdiemap.png from 9.3MB to <3MB for web performance
+- T052: Add comprehensive loading states throughout map experience
+
+**Status**: User Stories 1-5 (P1-P5) ✅ COMPLETE - Map fully functional with native Leaflet integration, WAGDIE theming, interactive markers, layer controls, and character display with ownership badges
 
 ### Parallel Team Strategy
 
