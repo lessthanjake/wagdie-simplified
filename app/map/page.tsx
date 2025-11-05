@@ -55,14 +55,15 @@ export default function MapPage() {
         ref={mapRef}
       />
 
-      {/* Character List Toggle Button */}
+      {/* Character List Toggle Button - Responsive */}
       <button
         onClick={() => setShowCharacterPanel(!showCharacterPanel)}
-        className={`fixed top-4 left-4 z-50 flex items-center gap-2 px-4 py-2 rounded-lg border-2 font-wagdie font-bold tracking-wide transition-all ${
+        className={`fixed top-4 left-4 z-50 flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 rounded-lg border-2 font-wagdie font-bold tracking-wide transition-all min-h-[44px] ${
           showCharacterPanel
             ? 'bg-gold text-abyss border-gold'
             : 'bg-shadow text-gold border-gold hover:bg-gold/10'
         }`}
+        aria-label="Toggle character list panel"
       >
         <svg
           className="w-5 h-5"
@@ -77,15 +78,16 @@ export default function MapPage() {
             d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
           />
         </svg>
-        <span>My Characters</span>
+        <span className="hidden xs:inline text-sm sm:text-base">My Characters</span>
+        <span className="xs:hidden text-sm sm:text-base">Chars</span>
         {connectedWallet && (
           <div className="w-2 h-2 bg-gold rounded-full animate-pulse"></div>
         )}
       </button>
 
-      {/* Character List Panel */}
+      {/* Character List Panel - Responsive positioning */}
       {showCharacterPanel && (
-        <div className="fixed top-20 left-4 z-40">
+        <div className="fixed top-20 left-4 right-4 sm:left-4 sm:right-auto sm:max-w-sm z-40">
           <CharacterListPanel
             characters={characterLocations}
             connectedWallet={connectedWallet}
@@ -104,29 +106,32 @@ export default function MapPage() {
         </div>
       )}
 
-      {/* Wallet Connection Prompt */}
+      {/* Wallet Connection Prompt - Responsive */}
       {!connectedWallet && (
         <button
           onClick={connectWallet}
-          className="fixed top-4 right-4 z-50 px-6 py-3 bg-gold text-abyss font-wagdie font-bold rounded-lg border-2 border-gold hover:bg-ember transition-all tracking-wide"
+          className="fixed top-4 right-4 z-50 px-3 sm:px-6 py-2 sm:py-3 bg-gold text-abyss font-wagdie font-bold rounded-lg border-2 border-gold hover:bg-ember transition-all tracking-wide min-h-[44px] text-sm sm:text-base"
         >
           Connect Wallet
         </button>
       )}
 
-      {/* Connected Wallet Indicator */}
+      {/* Connected Wallet Indicator - Responsive */}
       {connectedWallet && (
-        <div className="fixed top-4 right-4 z-50 flex items-center gap-3 px-4 py-3 bg-shadow border-2 border-gold rounded-lg">
+        <div className="fixed top-4 right-4 z-50 flex items-center gap-2 sm:gap-3 px-2 sm:px-4 py-2 sm:py-3 bg-shadow border-2 border-gold rounded-lg min-h-[44px]">
           <div className="w-2 h-2 bg-gold rounded-full animate-pulse"></div>
-          <span className="font-wagdie text-sm text-bone">
+          <span className="font-wagdie text-xs sm:text-sm text-bone hidden xs:inline">
             {connectedWallet.slice(0, 6)}...{connectedWallet.slice(-4)}
+          </span>
+          <span className="font-wagdie text-xs sm:text-sm text-bone xs:hidden">
+            {connectedWallet.slice(0, 4)}...{connectedWallet.slice(-2)}
           </span>
           <button
             onClick={() => {
               // Disconnect logic would go here
               window.location.reload();
             }}
-            className="text-mist hover:text-bone transition-colors"
+            className="text-mist hover:text-bone transition-colors p-1"
             aria-label="Disconnect wallet"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
