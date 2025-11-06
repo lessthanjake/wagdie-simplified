@@ -5,6 +5,7 @@
 
 'use client'
 
+import React from 'react';
 import { CharacterCard } from './CharacterCard'
 import { InfiniteScroll } from '@/components/shared/InfiniteScroll'
 import type { Character } from '@/types/character'

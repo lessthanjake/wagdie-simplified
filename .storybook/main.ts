@@ -1,4 +1,5 @@
 import type { StorybookConfig } from '@storybook/react-vite';
+import { resolve } from 'path';
 
 const config: StorybookConfig = {
   stories: [
@@ -17,6 +18,21 @@ const config: StorybookConfig = {
   },
   docs: {
     autodocs: 'tag',
+  },
+  viteFinal: async (config) => {
+    config.resolve = config.resolve || {};
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@': resolve(__dirname, '../'),
+    };
+
+    // Polyfill process.env for Storybook
+    config.define = {
+      ...config.define,
+      'process.env': {},
+    };
+
+    return config;
   },
 };
 

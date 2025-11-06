@@ -13,6 +13,8 @@ Auto-generated from all feature plans. Last updated: 2025-11-05
 - Supabase PostgreSQL (characters, locations data), Browser localStorage (wallet persistence) (006-map-integration)
 - TypeScript 5+ + React 18, React-Leaflet 7+, Leaflet 1.9+, Next.js 15 (App Router), Tailwind CSS 3.4 (008-map-refactor)
 - N/A (refactoring existing code, no database changes) (008-map-refactor)
+- TypeScript 5+, React 18+, Node.js 18+ + @storybook/react@8.x, @storybook/react-vite, @storybook/nextjs, storybook CLI (009-storybook)
+- N/A (development tool, no persistent storage) (009-storybook)
 
 - TypeScript 5+ (Node.js 18+ for migration scripts) + Firebase Admin SDK, Supabase JS client, ethers.js (for address normalization) (001-migration-plan)
 
@@ -50,6 +52,7 @@ npm run lint
 TypeScript 5+ (Node.js 18+ for migration scripts): Follow standard conventions
 
 ## Recent Changes
+- 009-storybook: Added TypeScript 5+, React 18+, Node.js 18+ + @storybook/react@8.x, @storybook/react-vite, @storybook/nextjs, storybook CLI
 
 - **008-map-refactor (COMPLETED)**: Complete map architecture refactor
   - ✅ Modular architecture with separation of concerns
@@ -63,8 +66,6 @@ TypeScript 5+ (Node.js 18+ for migration scripts): Follow standard conventions
   - ✅ Component architecture documented
 
 - 008-map-refactor: Added TypeScript 5+ + React 18, React-Leaflet 7+, Leaflet 1.9+, Next.js 15 (App Router), Tailwind CSS 3.4
-- 006-map-integration: Added TypeScript 5+, Node.js 18+ + Next.js 15 (App Router), React 18, wagmi v2, viem v2, Tailwind CSS 3.4, Supabase PostgreSQL, RainbowKit 2.2+
-- 005-mock-data-integration: Added TypeScript 5+, Node.js 18+ + Supabase JS Client, @supabase/supabase-js v2
 
 <!-- MANUAL ADDITIONS START -->
 

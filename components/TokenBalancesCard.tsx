@@ -1,5 +1,7 @@
 'use client'
 
+import React from 'react';
+
 // TokenBalancesCard Component
 // Displays user's ERC1155 token balances
 

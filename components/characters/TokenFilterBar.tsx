@@ -5,6 +5,7 @@
 
 'use client'
 
+import React from 'react';
 import type { CharacterFilterTab, SortOrder } from '@/types/character'
 
 interface TokenFilterBarProps {

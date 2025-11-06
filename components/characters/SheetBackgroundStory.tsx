@@ -5,6 +5,8 @@
 
 'use client'
 
+import React from 'react';
+
 interface SheetBackgroundStoryProps {
   story: string | null
   isEditMode: boolean

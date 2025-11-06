@@ -1,5 +1,7 @@
 'use client'
 
+import React from 'react';
+
 // OwnershipVerificationBanner Component
 // Displays ownership verification status for a character
 
