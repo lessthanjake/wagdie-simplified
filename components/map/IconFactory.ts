@@ -398,7 +398,8 @@ class EnhancedIconFactoryImpl implements IEnhancedIconFactory {
         iconSize: size,
         iconAnchor: [size[0] / 2, size[1]],
         popupAnchor: [0, -size[1]],
-        className: `custom-icon-${type} leaflet-marker-icon`
+        className: `custom-icon-${type} leaflet-marker-icon`,
+        zIndex: 1000 // Ensure markers appear above map image
       });
 
       // Verify icon was created successfully
@@ -410,7 +411,8 @@ class EnhancedIconFactoryImpl implements IEnhancedIconFactory {
           iconSize: size,
           iconAnchor: [size[0] / 2, size[1]],
           popupAnchor: [0, -size[1]],
-          className: 'fallback-icon leaflet-marker-icon'
+          className: 'fallback-icon leaflet-marker-icon',
+          zIndex: 1000 // Ensure markers appear above map image
         });
       }
 
@@ -423,7 +425,8 @@ class EnhancedIconFactoryImpl implements IEnhancedIconFactory {
         iconSize: size,
         iconAnchor: [size[0] / 2, size[1]],
         popupAnchor: [0, -size[1]],
-        className: 'error-fallback-icon leaflet-marker-icon'
+        className: 'error-fallback-icon leaflet-marker-icon',
+        zIndex: 1000 // Ensure markers appear above map image
       });
     }
   }
