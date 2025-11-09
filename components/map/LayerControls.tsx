@@ -9,15 +9,24 @@
 
 import React from 'react';
 import type { LayerControlsProps, LayerConfig } from '@/specs/008-map-refactor/contracts/layer-controller';
+import { useAssetLoading } from '@/hooks/useAssetLoading';
+import { AssetLoadingPlaceholder, AssetFailedState } from './AssetLoadingStates';
 
 /**
- * Default layer configuration
+ * Enhanced layer configuration with asset types and legend icons
  */
-const layerConfigs: LayerConfig[] = [
+const layerConfigs: (LayerConfig & {
+  assetType: string;
+  iconPathOn: string;
+  iconPathOff: string;
+})[] = [
   {
     key: 'locations',
     label: 'Locations',
-    iconPath: '/images/map-icons/icon_location.png',
+    iconPath: '/images/mapicons/icon_location.png', // Fallback for LayerIcon component
+    iconPathOn: '/images/legendicons/legend_icon_location_on.png',
+    iconPathOff: '/images/legendicons/legend_icon_location_off.png',
+    assetType: 'location',
     defaultVisible: true,
     description: 'Toggle visibility of location markers',
     keyboardShortcut: 'l',
@@ -25,7 +34,10 @@ const layerConfigs: LayerConfig[] = [
   {
     key: 'characters',
     label: 'Characters',
-    iconPath: '/images/map-icons/icon_youarehere.png',
+    iconPath: '/images/mapicons/icon_youarehere.png', // Fallback for LayerIcon component
+    iconPathOn: '/images/legendicons/legend_icon_location_on.png', // Reuse location icon for characters
+    iconPathOff: '/images/legendicons/legend_icon_location_off.png',
+    assetType: 'character',
     defaultVisible: true,
     description: 'Toggle visibility of character markers',
     keyboardShortcut: 'c',
@@ -33,28 +45,37 @@ const layerConfigs: LayerConfig[] = [
   {
     key: 'burns',
     label: 'Burns',
-    iconPath: '/images/map-icons/icon_burn.png',
+    iconPath: '/images/mapicons/icon_burn.png', // Fallback for LayerIcon component
+    iconPathOn: '/images/legendicons/legend_icon_burn_on.png',
+    iconPathOff: '/images/legendicons/legend_icon_burn_off.png',
+    assetType: 'burn',
     defaultVisible: true,
     description: 'Toggle visibility of burn event markers',
   },
   {
     key: 'deaths',
     label: 'Deaths',
-    iconPath: '/images/map-icons/icon_death.png',
+    iconPath: '/images/mapicons/icon_death.png', // Fallback for LayerIcon component
+    iconPathOn: '/images/legendicons/legend_icon_death_on.png',
+    iconPathOff: '/images/legendicons/legend_icon_death_off.png',
+    assetType: 'death',
     defaultVisible: true,
     description: 'Toggle visibility of death event markers',
   },
   {
     key: 'fights',
     label: 'Fights',
-    iconPath: '/images/map-icons/icon_fight.png',
+    iconPath: '/images/mapicons/icon_fight.png', // Fallback for LayerIcon component
+    iconPathOn: '/images/legendicons/legend_icon_fight_on.png',
+    iconPathOff: '/images/legendicons/legend_icon_fight_off.png',
+    assetType: 'fight',
     defaultVisible: true,
     description: 'Toggle visibility of fight/battle event markers',
   },
 ];
 
 /**
- * LayerControls component
+ * Enhanced LayerControls component with asset loading integration
  */
 export const LayerControls: React.FC<LayerControlsProps> = ({
   layers,
@@ -63,6 +84,69 @@ export const LayerControls: React.FC<LayerControlsProps> = ({
   className = '',
   showCounts = false,
 }) => {
+  // Asset loading integration for layer icons
+  const {
+    getAssetState,
+    retryAsset
+  } = useAssetLoading();
+
+  /**
+   * LayerIcon component with asset loading states
+   */
+  const LayerIcon: React.FC<{ config: typeof layerConfigs[0]; isActive: boolean }> = ({ config, isActive }) => {
+    const assetState = getAssetState(config.assetType as any);
+
+    if (assetState?.status === 'loading') {
+      return (
+        <AssetLoadingPlaceholder
+          assetId={config.assetType}
+          type="marker"
+          size="small"
+          className="w-6 h-6"
+        />
+      );
+    }
+
+    if (assetState?.status === 'failed') {
+      return (
+        <AssetFailedState
+          assetId={config.assetType}
+          type="marker"
+          error={assetState.error}
+          onRetry={() => retryAsset(config.assetType)}
+          className="w-6 h-6"
+        />
+      );
+    }
+
+    // Use legend icons (on/off state) if available, otherwise fallback to original icon
+    const iconSrc = isActive
+      ? (config.iconPathOn || config.iconPath)
+      : (config.iconPathOff || config.iconPath);
+
+    return (
+      <img
+        src={iconSrc}
+        alt={`${config.label} layer icon ${isActive ? 'on' : 'off'}`}
+        style={{
+          width: '24px',
+          height: '24px',
+          filter: isActive
+            ? 'drop-shadow(0 0 3px rgba(212, 175, 55, 0.5))'
+            : 'grayscale(50%) opacity(0.6)', // Less severe filtering for legend icons
+          transition: 'all 0.2s ease',
+        }}
+        onError={(e) => {
+          // Handle image loading errors
+          console.warn(`[LayerControls] Failed to load icon for ${config.label}:`, iconSrc);
+          // Attempt to retry loading
+          retryAsset(config.assetType);
+        }}
+        aria-hidden="true"
+      />
+    );
+  };
+
   const handleToggle = (layerKey: keyof typeof layers) => {
     onToggle(layerKey);
     if (onVisibilityChange) {
@@ -80,6 +164,7 @@ export const LayerControls: React.FC<LayerControlsProps> = ({
   return (
     <div
       className={className}
+      data-testid="layer-controls"
       style={{
         display: 'flex',
         flexDirection: 'column',
@@ -144,20 +229,13 @@ export const LayerControls: React.FC<LayerControlsProps> = ({
             }
           }}
         >
-          {/* Icon */}
-          <img
-            src={config.iconPath}
-            alt={`${config.label} layer icon`}
-            style={{
-              width: '24px',
-              height: '24px',
-              filter: layers[config.key]
-                ? 'drop-shadow(0 0 3px rgba(212, 175, 55, 0.5))'
-                : 'grayscale(100%) opacity(0.3)',
-              transition: 'all 0.2s ease',
-            }}
-            aria-hidden="true"
-          />
+          {/* Icon with asset loading states */}
+          <div data-testid={`legend-${config.key}-icon`}>
+            <LayerIcon
+              config={config}
+              isActive={layers[config.key]}
+            />
+          </div>
 
           {/* Label */}
           <span
@@ -177,6 +255,7 @@ export const LayerControls: React.FC<LayerControlsProps> = ({
             checked={layers[config.key]}
             onChange={() => handleToggle(config.key)}
             onKeyDown={(e) => handleKeyDown(e, config)}
+            data-testid={`toggle-${config.key}`}
             style={{
               width: '18px',
               height: '18px',
