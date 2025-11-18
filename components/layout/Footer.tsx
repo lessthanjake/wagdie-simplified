@@ -3,55 +3,29 @@
  *
  * Site footer with external links to community resources and copyright information.
  * Uses environment variables for configurable URLs.
- *
- * @component
- * @example
- * ```tsx
- * import { Footer } from '@/components/layout/Footer'
- *
- * // In app/layout.tsx
- * export default function RootLayout({ children }) {
- *   return (
- *     <body>
- *       <main>{children}</main>
- *       <Footer />
- *     </body>
- *   )
- * }
- * ```
- *
- * Features:
- * - **External Links**: Discord, OpenSea, Twitter with fallback URLs
- * - **Security**: All external links use target="_blank" and rel="noopener noreferrer"
- * - **Responsive Layout**: Flex-wrap for link row, centered alignment
- * - **Accessibility**: 44x44px minimum touch targets on all links
- * - **Gothic Styling**: Shadow background, midnight border, ash text with bone hover
- * - **Environment Variables**: Customizable URLs via .env (NEXT_PUBLIC_DISCORD_URL, etc.)
- * - **Auto-positioning**: Uses mt-auto to stick to bottom of flex container
- *
- * External Links:
- * - Discord: Community chat and discussions
- * - OpenSea: NFT marketplace collection
- * - Twitter: Official project updates
  */
 
 import React from 'react';
+import Image from 'next/image';
 
 export function Footer() {
   const externalLinks = [
     {
       label: 'Discord',
       url: process.env.NEXT_PUBLIC_DISCORD_URL || 'https://discord.gg/wagdie',
+      imgSrc: '/images/cta-discord.png',
     },
     {
       label: 'OpenSea',
       url: process.env.NEXT_PUBLIC_OPENSEA_URL || 'https://opensea.io/collection/wagdie',
+      imgSrc: '/images/wagdie.png',
     },
     {
       label: 'Twitter',
       url: process.env.NEXT_PUBLIC_TWITTER_URL || 'https://twitter.com/WAGDIE_ETH',
+      imgSrc: '/images/cta-characters.png',
     },
-  ]
+  ];
 
   return (
     <footer className="bg-shadow border-t border-midnight mt-auto">
@@ -64,8 +38,9 @@ export function Footer() {
               href={link.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-ash hover:text-bone transition-colors duration-200 min-h-[44px] flex items-center"
+              className="flex items-center text-ash hover:text-bone transition-colors duration-200 min-h-[44px]"
             >
+              <Image src={link.imgSrc} alt={link.label} width={24} height={24} className="mr-2" />
               {link.label}
             </a>
           ))}
@@ -77,5 +52,5 @@ export function Footer() {
         </p>
       </div>
     </footer>
-  )
+  );
 }
