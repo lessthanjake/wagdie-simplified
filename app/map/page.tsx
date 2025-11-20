@@ -1,6 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import Image from 'next/image';
 import { useState, useRef } from 'react';
 import { useMapData } from '@/hooks/map/useMapData';
 import { useMapLayers } from '@/hooks/map/useMapLayers';
@@ -90,11 +91,10 @@ export default function MapPage() {
       {/* Character List Toggle Button - Responsive with enhanced accessibility */}
       <button
         onClick={() => setShowCharacterPanel(!showCharacterPanel)}
-        className={`fixed top-4 left-4 z-50 flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 rounded-lg border-2 font-wagdie font-bold tracking-wide transition-all min-h-[44px] focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-abyss ${
-          showCharacterPanel
-            ? 'bg-gold text-abyss border-gold'
-            : 'bg-shadow text-gold border-gold hover:bg-gold/10'
-        }`}
+        className={`fixed top-4 left-4 z-50 flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 rounded-lg border-2 font-wagdie font-bold tracking-wide transition-all min-h-[44px] focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-abyss ${showCharacterPanel
+          ? 'bg-gold text-abyss border-gold'
+          : 'bg-shadow text-gold border-gold hover:bg-gold/10'
+          }`}
         aria-label="Toggle character list panel"
         aria-expanded={showCharacterPanel}
         aria-controls="character-list-panel"
@@ -156,49 +156,54 @@ export default function MapPage() {
         </div>
       )}
 
-      {/* Wallet Connection Prompt - Responsive with accessibility */}
+      {/* Wallet Connection Prompt - Image-based button with accessibility */}
       {!connectedWallet && (
         <button
           onClick={connectWallet}
-          className="fixed top-4 right-4 z-50 px-3 sm:px-6 py-2 sm:py-3 bg-gold text-abyss font-wagdie font-bold rounded-lg border-2 border-gold hover:bg-ember transition-all tracking-wide min-h-[44px] text-sm sm:text-base focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-abyss"
+          className="fixed top-4 right-4 z-50 relative w-[160px] sm:w-[180px] h-[48px] group focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-abyss rounded-lg"
           aria-label="Connect wallet to view your characters"
         >
-          Connect Wallet
+          <Image
+            src="/images/walletbutton/button-connect.png"
+            alt="Connect Wallet"
+            fill
+            className="object-contain transition-opacity duration-200 group-hover:opacity-90"
+          />
+          <span className="relative z-10 text-abyss font-wagdie font-bold text-sm tracking-wider group-hover:text-black transition-colors uppercase mt-1 block">
+            Connect Wallet
+          </span>
         </button>
       )}
 
-      {/* Connected Wallet Indicator - Responsive with accessibility */}
+      {/* Connected Wallet Indicator - Image-based button with disconnect */}
       {connectedWallet && (
-        <div
-          className="fixed top-4 right-4 z-50 flex items-center gap-2 sm:gap-3 px-2 sm:px-4 py-2 sm:py-3 bg-shadow border-2 border-gold rounded-lg min-h-[44px]"
-          role="status"
-          aria-label="Connected wallet status"
+        <button
+          onClick={() => {
+            // Disconnect logic would go here
+            window.location.reload();
+          }}
+          className="fixed top-4 right-4 z-50 relative w-[160px] sm:w-[180px] h-[48px] group focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-abyss rounded-lg"
+          aria-label={`Connected wallet: ${connectedWallet.slice(0, 6)}...${connectedWallet.slice(-4)}. Click to disconnect`}
+          title="Click to disconnect"
         >
-          <div className="w-2 h-2 bg-gold rounded-full animate-pulse" aria-hidden="true"></div>
-          <span className="font-wagdie text-xs sm:text-sm text-bone hidden xs:inline" aria-label={`Wallet address: ${connectedWallet.slice(0, 6)}...${connectedWallet.slice(-4)}`}>
-            {connectedWallet.slice(0, 6)}...{connectedWallet.slice(-4)}
-          </span>
-          <span className="font-wagdie text-xs sm:text-sm text-bone xs:hidden" aria-label={`Wallet: ${connectedWallet.slice(0, 4)}...${connectedWallet.slice(-2)}`}>
-            {connectedWallet.slice(0, 4)}...{connectedWallet.slice(-2)}
-          </span>
-          <button
-            onClick={() => {
-              // Disconnect logic would go here
-              window.location.reload();
-            }}
-            className="text-mist hover:text-bone transition-colors p-1 focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-abyss rounded"
-            aria-label="Disconnect wallet"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
-        </div>
+          <Image
+            src="/images/walletbutton/button-disconnect.png"
+            alt="Disconnect Wallet"
+            fill
+            className="object-contain transition-opacity duration-200 group-hover:opacity-90"
+          />
+          <div className="relative z-10 flex items-center justify-center h-full">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-gold rounded-full animate-pulse" aria-hidden="true"></div>
+              <span className="font-wagdie text-xs sm:text-sm text-bone group-hover:text-gold transition-colors hidden xs:inline">
+                {connectedWallet.slice(0, 6)}...{connectedWallet.slice(-4)}
+              </span>
+              <span className="font-wagdie text-xs text-bone group-hover:text-gold transition-colors xs:hidden">
+                {connectedWallet.slice(0, 4)}...{connectedWallet.slice(-2)}
+              </span>
+            </div>
+          </div>
+        </button>
       )}
     </div>
   );

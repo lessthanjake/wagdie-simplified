@@ -14,6 +14,9 @@ const nextConfig = {
         hostname: 'gateway.pinata.cloud',
       },
     ],
+    // Disable image optimization completely to prevent WebP conversion issues
+    // Leaflet icons are served directly without Next.js optimization
+    unoptimized: true,
   },
   webpack: (config, { isServer }) => {
     // Suppress MetaMask SDK React Native dependency warnings
@@ -31,6 +34,20 @@ const nextConfig = {
     ]
 
     return config
+  },
+
+  // Add rewrites to handle WebP requests for map icons by serving PNG versions
+  async rewrites() {
+    return [
+      {
+        source: '/images/mapicons/:path*.webp',
+        destination: '/images/mapicons/:path*.png'
+      },
+      {
+        source: '/images/legendicons/:path*.webp',
+        destination: '/images/legendicons/:path*.png'
+      }
+    ]
   },
 }
 

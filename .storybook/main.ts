@@ -1,5 +1,8 @@
 import type { StorybookConfig } from '@storybook/react-vite';
 import { resolve } from 'path';
+import commonjs from '@rollup/plugin-commonjs';
+import nodeResolve from '@rollup/plugin-node-resolve';
+import replace from '@rollup/plugin-replace';
 
 const config: StorybookConfig = {
   stories: [
@@ -31,6 +34,19 @@ const config: StorybookConfig = {
       ...config.define,
       'process.env': {},
     };
+
+    // Add plugins to handle problematic packages
+    config.plugins = config.plugins || [];
+    config.plugins.push(
+      replace({
+        preventAssignment: true,
+        'import pkg from \'../../package.json\' with { type: \'json\' };': 'import pkg from \'../../package.json\';',
+      }),
+      nodeResolve({
+        extensions: ['.js', '.json'],
+      }),
+      commonjs()
+    );
 
     return config;
   },

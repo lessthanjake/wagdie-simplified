@@ -10,6 +10,7 @@
 import React, { useMemo, useEffect, useCallback } from 'react';
 import { Marker, Popup, Tooltip } from 'react-leaflet';
 import { getIconFactory } from './IconFactory';
+import { useIconFactory } from '@/hooks/useIconFactory';
 import PopupRenderer from './PopupRenderer';
 import TooltipRenderer from './TooltipRenderer';
 import { getPerformanceMonitor } from '@/lib/utils/performance-monitor';
@@ -146,7 +147,7 @@ function isMobileOrTablet(): boolean {
 }
 
 /**
- * Generic MarkerComponent
+ * Enhanced Generic MarkerComponent with asset loading integration
  */
 const MarkerComponentImpl: React.FC<MarkerProps> = (props) => {
   const { id, position, onClick, isMobile, type, data } = props;
@@ -162,11 +163,11 @@ const MarkerComponentImpl: React.FC<MarkerProps> = (props) => {
     };
   }, [measureRender]);
 
-  // Get icon from IconFactory
-  const iconFactory = getIconFactory();
+  // Enhanced icon factory with asset loading
+  const { getIcon, loading: iconLoading, error: iconError, retryIcon } = useIconFactory();
   const icon = useMemo(
-    () => iconFactory.createIcon(type, isMobile ?? isMobileOrTablet()),
-    [iconFactory, type, isMobile]
+    () => getIcon(type, isMobile ?? isMobileOrTablet()),
+    [getIcon, type, isMobile]
   );
 
   // Calculate center position from bounds if data has bounds
@@ -215,12 +216,24 @@ const MarkerComponentImpl: React.FC<MarkerProps> = (props) => {
     }
   }, [type, data]);
 
+  // Handle icon loading errors
+  useEffect(() => {
+    if (iconError && type) {
+      console.warn(`[MarkerComponent] Icon loading error for ${type}:`, iconError);
+      // Attempt to retry icon loading
+      retryIcon(type).catch(error => {
+        console.error(`[MarkerComponent] Failed to retry icon for ${type}:`, error);
+      });
+    }
+  }, [iconError, type, retryIcon]);
+
   return (
     <Marker
       key={id}
       position={centerPosition}
       icon={icon}
       eventHandlers={{ click: handleClick }}
+      data-testid={`${type}-marker`}
     >
       {/* Tooltip */}
       <Tooltip direction="top" className="custom-tooltip">

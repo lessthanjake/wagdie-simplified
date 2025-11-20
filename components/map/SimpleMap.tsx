@@ -16,14 +16,10 @@
 
 'use client';
 
-import React, { useMemo, useRef, useCallback, useState, useLayoutEffect, useEffect } from 'react';
-import { MapContainer, useMap } from 'react-leaflet';
+import React, { useMemo, useCallback, useState, useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-// Clustering temporarily disabled to avoid context issues
-// import 'react-leaflet-markercluster/styles';
-// import './MarkerCluster.css';
-// import MarkerClusterGroup from 'react-leaflet-markercluster';
+import LeafletMapWrapper from './LeafletMapWrapper';
 
 // Components
 import { LayerController, useLayerFilteredMarkers } from './LayerController';
@@ -33,6 +29,12 @@ import CharacterMarker from './markers/CharacterMarker';
 import BurnMarker from './markers/BurnMarker';
 import DeathMarker from './markers/DeathMarker';
 import FightMarker from './markers/FightMarker';
+import { AssetErrorBoundary } from './AssetErrorBoundary';
+import { AssetLoadingIndicator, AssetLoadingSpinner } from './AssetLoadingStates';
+
+// Hooks
+import { useAssetLoading } from '@/hooks/useAssetLoading';
+import { useIconFactory } from '@/hooks/useIconFactory';
 
 // Types
 import type { Location, CharacterLocation } from '@/lib/types/map';
@@ -45,6 +47,7 @@ interface SimpleMapProps {
   layers: LayerVisibility;
   toggleLayer: (layer: keyof LayerVisibility) => void;
   onMarkerClick?: (marker: MapMarkerData) => void;
+  onAssetRetry?: (assetId: string) => void;
 }
 
 export interface SimpleMapRef {
@@ -60,41 +63,6 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 });
 
-/**
- * Add image overlay to the map
- */
-function ImageOverlay() {
-  const map = useMap();
-
-  React.useEffect(() => {
-    if (!map) return;
-
-    map.attributionControl.setPrefix('WAGDIE World');
-
-    // Add WAGDIE world image overlay
-    const bounds: L.LatLngBoundsExpression = [[0, 0], [2222, 2222]];
-    const imageOverlay = L.imageOverlay('/images/wagdiemap.png', bounds);
-
-    try {
-      imageOverlay.addTo(map);
-      map.fitBounds(bounds);
-
-      return () => {
-        try {
-          imageOverlay.remove();
-        } catch (e) {
-          // Ignore errors during cleanup
-        }
-      };
-    } catch (e) {
-      // If image overlay fails to load, still set up the map
-      console.warn('Failed to load map image overlay:', e);
-      return undefined;
-    }
-  }, [map]);
-
-  return null;
-}
 
 /**
  * Detect if device is mobile or tablet
@@ -105,84 +73,55 @@ function isMobileOrTablet(): boolean {
 }
 
 /**
- * Error Boundary for MapContainer - handles "Map container is already initialized" and other map errors
- * Must be a class component to catch render errors of descendants.
- */
-class MapErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error?: Error }> {
-  constructor(props: { children: React.ReactNode }) {
-    super(props);
-    this.state = { hasError: false };
-  }
-
-  static getDerivedStateFromError(error: Error) {
-    return { hasError: true, error };
-  }
-
-  componentDidCatch(error: Error) {
-    // eslint-disable-next-line no-console
-    console.error('MapErrorBoundary caught:', error);
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="flex items-center justify-center h-screen bg-abyss">
-          <div className="text-center p-8 max-w-md">
-            <div className="text-poison text-6xl mb-4">⚠️</div>
-            <div className="text-bone text-xl mb-4 font-wagdie">Map Error</div>
-            <div className="text-mist mb-6">
-              An unexpected error occurred while loading the map.
-            </div>
-            <button
-              onClick={() => window.location.reload()}
-              className="px-6 py-2 bg-gold text-abyss font-wagdie font-bold rounded-lg hover:bg-ember transition-all"
-            >
-              Reload Page
-            </button>
-          </div>
-        </div>
-      );
-    }
-    return <>{this.props.children}</>;
-  }
-}
-
-/**
  * Main SimpleMap Component - REFACTORED
  *
  * Now a thin orchestrator that delegates to specialized components
+ * Enhanced with asset loading and error handling
  */
 const SimpleMapComponent = React.forwardRef<SimpleMapRef, SimpleMapProps>(
-  ({ locations, characterLocations, layers, toggleLayer, onMarkerClick }, ref) => {
-    // State to control when to render the map (to avoid HMR conflicts)
-    const [shouldRenderMap, setShouldRenderMap] = useState(false);
-    // Stable key to force a clean MapContainer mount exactly once per component lifecycle
-    const [mapKey] = useState(() => `wagdie-map-${Date.now()}`);
+  ({ locations, characterLocations, layers, toggleLayer, onMarkerClick, onAssetRetry }, ref) => {
     // Hold Leaflet map instance for imperative handle
     const leafletMapRef = useRef<L.Map | null>(null);
 
-    // Check for existing map and delay rendering slightly to avoid HMR conflicts
-    useEffect(() => {
-      const timer = setTimeout(() => {
-        // Clean up any existing map instance
-        const containerElement = document.getElementById('wagdie-world-map');
-        if (containerElement) {
-          try {
-            // If Leaflet has previously associated a map with this container, clear its internal id
-            if ((containerElement as any)._leaflet_id) {
-              (containerElement as any)._leaflet_id = undefined;
-            }
-            // Proactively clear any leftover DOM children
-            containerElement.innerHTML = '';
-          } catch (e) {
-            console.warn('Error cleaning up map:', e);
-          }
-        }
-        setShouldRenderMap(true);
-      }, 100); // Small delay to allow HMR cleanup
+    // Enhanced asset loading integration
+    const {
+      loading: assetLoading,
+      error: assetError,
+      assets: assetsMap,
+      criticalLoaded,
+      retryAsset: internalRetryAsset,
+      preloadAssets,
+      metrics: assetMetrics
+    } = useAssetLoading();
 
-      return () => clearTimeout(timer);
-    }, []);
+    // Wrap retry asset to include external callback
+    const handleRetryAsset = useCallback((assetId: string) => {
+      internalRetryAsset(assetId);
+      onAssetRetry?.(assetId);
+    }, [internalRetryAsset, onAssetRetry]);
+
+    const {
+      getIcon,
+      loading: iconLoading,
+      error: iconError,
+      metrics: iconMetrics,
+      retryIcon,
+      preloadIcons
+    } = useIconFactory();
+
+    // Initialize asset loading
+    useEffect(() => {
+      const initAssets = async () => {
+        try {
+          // Initialize asset preloading for critical map assets
+          await preloadIcons(['location', 'character', 'burn', 'death', 'fight'] as any);
+        } catch (error) {
+          console.warn('[SimpleMap] Failed to preload assets:', error);
+        }
+      };
+
+      initAssets();
+    }, [preloadIcons]);
 
     // Expose imperative methods to parent
     React.useImperativeHandle(ref, () => ({
@@ -194,29 +133,7 @@ const SimpleMapComponent = React.forwardRef<SimpleMapRef, SimpleMapProps>(
       getMap: () => leafletMapRef.current,
     }), []);
 
-    // Bridge component to capture Leaflet map instance
-    function MapHandleBridge() {
-      const map = useMap();
-      useEffect(() => {
-        leafletMapRef.current = map;
-        return () => {
-          try {
-            // Ensure full cleanup on unmount in dev/HMR
-            const container = map.getContainer() as any;
-            if (container && container._leaflet_id) {
-              container._leaflet_id = undefined;
-            }
-            map.remove();
-          } catch (_) {
-            // ignore
-          } finally {
-            leafletMapRef.current = null;
-          }
-        };
-      }, [map]);
-      return null;
-    }
-
+  
     // Create location marker components
     const locationMarkers = useMemo(() => {
       if (!layers.locations) return [];
@@ -287,18 +204,42 @@ const SimpleMapComponent = React.forwardRef<SimpleMapRef, SimpleMapProps>(
 
     // Clustering options removed while clustering is disabled
 
-    // Show loading state while waiting to render map
-    if (!shouldRenderMap) {
+    // Show enhanced loading state with asset loading progress
+    if (!criticalLoaded) {
       return (
         <div className="flex items-center justify-center h-screen bg-abyss">
-          <div className="text-center p-8 max-w-md">
+          <div className="text-center p-8 max-w-md w-full">
             <div className="text-bone text-xl mb-4 font-wagdie">
-              Initializing Map...
+              Loading Map Assets...
             </div>
             <div className="text-mist mb-6">
-              Please wait while we prepare the WAGDIE World map.
+              Please wait while WAGDIE assets are loaded.
             </div>
-            <div className="animate-spin w-8 h-8 border-2 border-gold border-t-transparent rounded-full mx-auto"></div>
+
+            {/* Show asset loading spinner */}
+            <AssetLoadingSpinner
+              size="large"
+              text="Loading assets..."
+              className="mb-6"
+            />
+
+            {/* Show asset loading indicator when assets are loading */}
+            {assetLoading && (
+              <div className="mb-4">
+                <AssetLoadingIndicator
+                  loadingStates={assetsMap}
+                  onRetryAsset={handleRetryAsset}
+                  className="bg-abyss/80 border border-gold/30"
+                />
+              </div>
+            )}
+
+            {/* Show error state if asset loading fails */}
+            {assetError && (
+              <div className="text-poison text-sm mb-4">
+                Failed to load map assets. Some features may be unavailable.
+              </div>
+            )}
           </div>
         </div>
       );
@@ -314,11 +255,15 @@ const SimpleMapComponent = React.forwardRef<SimpleMapRef, SimpleMapProps>(
           Skip to map controls
         </a>
 
-        <div style={{ height: '100%', width: '100%' }}>
-          <MapErrorBoundary>
-            <MapContainer
-              key={mapKey}
-              id="wagdie-world-map"
+        <div style={{ height: '100%', width: '100%' }} data-testid="map-container">
+          <AssetErrorBoundary
+            onError={(error, errorInfo) => {
+              console.error('[SimpleMap] Asset loading error:', error, errorInfo);
+            }}
+            maxRetries={3}
+            resetOnRetry={true}
+          >
+            <LeafletMapWrapper
               center={[1111, 1111]}
               zoom={0}
               minZoom={-2}
@@ -327,42 +272,39 @@ const SimpleMapComponent = React.forwardRef<SimpleMapRef, SimpleMapProps>(
               style={{ height: '100%', width: '100%' }}
               attributionControl={true}
             >
-              <MapHandleBridge />
-              <ImageOverlay />
+              {/* Layer Controller provides context for layer management */}
+              <LayerController
+                locations={locationMarkers}
+                characterLocations={characterMarkers}
+                burnMarkers={burnMarkers}
+                deathMarkers={deathMarkers}
+                fightMarkers={fightMarkers}
+              >
+                {/* Location markers (clustering disabled) */}
+                {locationMarkers.length > 0 && (
+                  <>{locationMarkers}</>
+                )}
 
-          {/* Layer Controller provides context for layer management */}
-          <LayerController
-            locations={locationMarkers}
-            characterLocations={characterMarkers}
-            burnMarkers={burnMarkers}
-            deathMarkers={deathMarkers}
-            fightMarkers={fightMarkers}
-          >
-            {/* Location markers (clustering disabled) */}
-            {locationMarkers.length > 0 && (
-              <>{locationMarkers}</>
-            )}
+                {/* Character markers (clustering disabled) */}
+                {characterMarkers.length > 0 && (
+                  <>{characterMarkers}</>
+                )}
 
-            {/* Character markers (clustering disabled) */}
-            {characterMarkers.length > 0 && (
-              <>{characterMarkers}</>
-            )}
+                {/* Event markers - TODO: Add event markers here */}
+                {burnMarkers.length > 0 && (
+                  <>{burnMarkers}</>
+                )}
 
-            {/* Event markers - TODO: Add event markers here */}
-            {burnMarkers.length > 0 && (
-              <>{burnMarkers}</>
-            )}
+                {deathMarkers.length > 0 && (
+                  <>{deathMarkers}</>
+                )}
 
-            {deathMarkers.length > 0 && (
-              <>{deathMarkers}</>
-            )}
-
-            {fightMarkers.length > 0 && (
-              <>{fightMarkers}</>
-            )}
-          </LayerController>
-        </MapContainer>
-          </MapErrorBoundary>
+                {fightMarkers.length > 0 && (
+                  <>{fightMarkers}</>
+                )}
+              </LayerController>
+            </LeafletMapWrapper>
+          </AssetErrorBoundary>
         </div>
 
         {/* Layer Controls - Moved to separate component for maintainability */}
@@ -386,6 +328,15 @@ const SimpleMapComponent = React.forwardRef<SimpleMapRef, SimpleMapProps>(
           aria-atomic="true"
           className="sr-only"
         />
+
+        {/* Hidden indicator for testing - map fully loaded with assets */}
+        {criticalLoaded && !assetLoading && !assetError && !iconLoading && !iconError && (
+          <div
+            data-testid="map-fully-loaded"
+            className="sr-only"
+            aria-hidden="true"
+          />
+        )}
       </React.Fragment>
     );
   }
@@ -401,6 +352,7 @@ export const SimpleMap = React.memo(SimpleMapComponent, (prevProps, nextProps) =
     prevProps.characterLocations === nextProps.characterLocations &&
     prevProps.layers === nextProps.layers &&
     prevProps.toggleLayer === nextProps.toggleLayer &&
-    prevProps.onMarkerClick === nextProps.onMarkerClick
+    prevProps.onMarkerClick === nextProps.onMarkerClick &&
+    prevProps.onAssetRetry === nextProps.onAssetRetry
   );
 });

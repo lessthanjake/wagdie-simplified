@@ -30,22 +30,22 @@ export const Button: React.FC<ButtonProps> = ({
   onClick,
   children,
 }) => {
-  const baseStyles = 'inline-flex items-center justify-center rounded-md font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2';
+  const baseStyles = 'inline-flex items-center justify-center rounded-sm font-bold tracking-wide transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-abyss font-wagdie border-2 uppercase';
 
   const variantStyles = {
-    primary: 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500',
-    secondary: 'bg-gray-200 text-gray-900 hover:bg-gray-300 focus:ring-gray-500',
-    danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500',
+    primary: 'bg-midnight text-bone border-gold hover:bg-gold hover:text-abyss hover:shadow-[0_0_20px_rgba(212,175,55,0.5)] focus:ring-gold shadow-[0_4px_0_0_#d4af37]',
+    secondary: 'bg-shadow text-bone border-mist hover:border-ash hover:text-ash focus:ring-mist shadow-[0_4px_0_0_#707070]',
+    danger: 'bg-blood text-bone border-blood hover:bg-ember hover:shadow-[0_0_20px_rgba(201,74,58,0.5)] focus:ring-blood shadow-[0_4px_0_0_#8b2635]',
   };
 
   const sizeStyles = {
-    sm: 'px-3 py-1.5 text-sm',
-    md: 'px-4 py-2 text-base',
-    lg: 'px-6 py-3 text-lg',
+    sm: 'px-4 py-2 text-sm',
+    md: 'px-6 py-3 text-base',
+    lg: 'px-8 py-4 text-lg',
   };
 
   const disabledStyles = disabled
-    ? 'opacity-50 cursor-not-allowed'
+    ? 'opacity-40 cursor-not-allowed grayscale'
     : 'cursor-pointer';
 
   const combinedStyles = `${baseStyles} ${variantStyles[variant]} ${sizeStyles[size]} ${disabledStyles}`;

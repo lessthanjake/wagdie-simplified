@@ -87,3 +87,51 @@ export const Interactive: Story = {
     },
   },
 };
+
+export const GothicPrimary: Story = {
+  name: 'Gothic Primary',
+  args: {
+    variant: 'primary',
+    children: 'summon forth',
+  },
+  parameters: {
+    docs: {
+      description: {
+        story: 'Gothic fantasy themed primary button with gold accents and shadow effects',
+      },
+    },
+  },
+};
+
+export const GothicDanger: Story = {
+  name: 'Gothic Danger',
+  args: {
+    variant: 'danger',
+    children: 'cast death curse',
+  },
+  parameters: {
+    docs: {
+      description: {
+        story: 'Gothic fantasy themed danger button with blood red coloring',
+      },
+    },
+  },
+};
+
+export const AllGothicVariants: Story = {
+  name: 'All Gothic Variants',
+  render: () => (
+    <div className="flex gap-4 flex-wrap">
+      <Button variant="primary">summon forth</Button>
+      <Button variant="secondary">observe</Button>
+      <Button variant="danger">cast death curse</Button>
+    </div>
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story: 'Collection of all gothic-themed button variants',
+      },
+    },
+  },
+};
