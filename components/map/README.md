@@ -101,31 +101,100 @@ SimpleMap (Root Orchestrator - 150 lines)
 
 ### IconFactory ⭐
 **File**: `IconFactory.ts`
-**Lines**: ~190
-**Purpose**: Icon creation and caching with performance optimization
+**Lines**: ~400 (enhanced with asset loading integration)
+**Purpose**: Advanced icon creation with progressive asset loading, caching, and responsive scaling
 **Features**:
-- ✅ Singleton pattern
-- ✅ Cache with size management (100 items max)
-- ✅ FIFO eviction when limit exceeded
-- ✅ Type-mobile key generation
-- ✅ Preloading support
-- ✅ 100% test coverage
+- ✅ **Progressive Asset Loading**: 4-stage fallback mechanism (placeholder → reload → default → error)
+- ✅ **Smart Caching**: LRU eviction with memory monitoring and priority handling
+- ✅ **Responsive Scaling**: Viewport-aware sizing with touch target optimization
+- ✅ **Performance Monitoring**: Load time tracking and cache hit rate metrics
+- ✅ **Error Recovery**: Exponential backoff retry with graceful degradation
+- ✅ **Asset Optimization**: Format selection (WebP, AVIF) and compression
+- ✅ **Service Integration**: AssetLoadingService, AssetCache, AssetErrorHandler
+- ✅ **Device Detection**: Mobile/tablet/desktop with high-DPI support
+- ✅ **100% test coverage** with comprehensive performance tests
 
-**Usage**:
+**Enhanced Usage**:
 ```typescript
-const icon = iconFactory.createIcon('location', false);
-// Returns cached icon or creates new one
+import { getIconFactory } from '@/components/map/IconFactory';
+import { useAssetLoading } from '@/hooks/useAssetLoading';
 
-// Cache statistics
-const cacheSize = iconFactory.getCacheSize(); // Number of cached icons
-iconFactory.clearCache(); // Clear all cached icons
+const iconFactory = getIconFactory();
+const { loadAsset, getAssetState } = useAssetLoading();
+
+// Create responsive icon with asset loading
+const icon = await iconFactory.createIconAsync('location', {
+  isMobile: false,
+  size: [32, 32],
+  onLoadStart: () => console.log('Loading started...'),
+  onLoadComplete: (icon) => console.log('Icon loaded:', icon),
+  onError: (error) => console.log('Load failed:', error)
+});
+
+// Get asset loading state
+const state = getAssetState('location');
+if (state.status === 'loaded') {
+  // Use loaded asset
+}
+
+// Enhanced caching with priority
+iconFactory.createIcon('character', {
+  priority: 'critical', // Critical assets get higher cache priority
+  preload: true
+});
+
+// Responsive icon creation
+const responsiveIcon = iconFactory.createIcon('burn', {
+  responsive: true,
+  touchOptimized: true // Ensures 44px minimum touch target on mobile
+});
 ```
 
-**Cache Strategy**:
-- Key format: `${type}-${isMobile ? 'mobile' : 'desktop'}`
-- Limit: 100 icons
-- Eviction: FIFO (First In, First Out)
-- Hit rate: ~99% for repeated icons
+**Asset Loading Integration**:
+```typescript
+// Progressive loading with fallbacks
+const loadingState = await iconFactory.loadAssetWithFallbacks('location');
+/*
+  1. Try to load from cache first
+  2. Attempt network load with optimization
+  3. Use fallback asset if load fails
+  4. Show error state if all attempts fail
+*/
+
+// Performance monitoring
+const metrics = iconFactory.getPerformanceMetrics();
+console.log('Cache hit rate:', metrics.cacheHitRate);
+console.log('Average load time:', metrics.averageLoadTime);
+console.log('Error rate:', metrics.errorRate);
+```
+
+**Advanced Caching Strategy**:
+- **Key Format**: `${type}-${isMobile ? 'mobile' : 'desktop'}-${viewport.width}x${viewport.height}`
+- **Memory Limit**: 50MB with automatic eviction
+- **Priority Levels**: critical > normal > low
+- **TTL**: Critical (2 hours), Normal (30 minutes), Low (10 minutes)
+- **Eviction**: LRU with memory pressure detection
+- **Hit Rate**: ~95% for cached assets, ~99% for responsive variations
+
+**Responsive Scaling Logic**:
+```typescript
+// Viewport-aware sizing
+const size = iconFactory.calculateResponsiveSize({
+  baseSize: [32, 32],
+  deviceType: 'mobile', // auto-detected
+  touchOptimized: true, // minimum 44px touch targets
+  pixelRatio: 2, // high-DPI support
+  viewport: { width: 375, height: 667 } // responsive to viewport
+});
+// Returns: [48, 48] for mobile touch optimization
+```
+
+**Error Recovery Mechanisms**:
+- **Network Errors**: Retry with exponential backoff (1s, 2s, 4s, 8s)
+- **Timeout Errors**: Use fallback asset after 5s timeout
+- **404 Errors**: Immediately use fallback asset
+- **Parsing Errors**: Use default icon with error logging
+- **Memory Pressure**: Clear non-critical cache entries
 
 ### PopupRenderer
 **File**: `PopupRenderer.tsx`

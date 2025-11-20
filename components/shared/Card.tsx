@@ -34,22 +34,22 @@ export const Card: React.FC<CardProps> = ({
   padded = true,
   className = '',
 }) => {
-  const baseStyles = 'bg-white rounded-lg border border-gray-200 shadow-sm';
-  const paddingStyles = padded ? 'p-4' : '';
+  const baseStyles = 'bg-shadow rounded-sm border-2 border-midnight shadow-[0_4px_0_0_#1a1a1a,0_8px_16px_rgba(0,0,0,0.5)] hover:border-gold transition-all duration-300';
+  const paddingStyles = padded ? 'p-6' : '';
   const loadingStyles = isLoading ? 'opacity-50' : '';
   const combinedClassName = `${baseStyles} ${paddingStyles} ${loadingStyles} ${className}`;
 
   return (
     <div className={combinedClassName}>
       {title && (
-        <div className="mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+        <div className="mb-4 pb-3 border-b-2 border-midnight">
+          <h3 className="text-xl font-bold text-bone font-wagdie tracking-wide uppercase">{title}</h3>
         </div>
       )}
       <div className={isLoading ? 'animate-pulse' : ''}>
         {children}
       </div>
-      {footer && <div className="mt-4 pt-4 border-t border-gray-200">{footer}</div>}
+      {footer && <div className="mt-4 pt-4 border-t-2 border-midnight">{footer}</div>}
     </div>
   );
 };

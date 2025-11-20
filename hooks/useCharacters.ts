@@ -7,8 +7,8 @@
 'use client'
 
 import { useInfiniteQuery } from '@tanstack/react-query'
-import { api } from '@/lib/api'
-import type { CharacterFilterTab, SortOrder } from '@/types/character'
+import { api } from '@/lib/api/endpoints'
+import { Character, CharacterFilterTab, SortOrder } from '@/types/character'
 
 export interface UseCharactersOptions {
   tab: CharacterFilterTab
@@ -44,9 +44,22 @@ export function useCharacters(options: UseCharactersOptions) {
   })
 
   // Flatten paginated results
-  const characters = query.data?.pages.flatMap((page) => page.characters) ?? []
+  const characters = query.data?.pages.reduce((acc, page) => {
+    if (page?.characters) {
+      return [...acc, ...page.characters];
+    }
+    return acc;
+  }, [] as Character[]) ?? []
+
   const totalCount = query.data?.pages[0]?.totalCount ?? 0
   const hasMore = query.hasNextPage ?? false
+
+  console.log('useCharacters state:', {
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
+    data: query.data
+  });
 
   return {
     characters,

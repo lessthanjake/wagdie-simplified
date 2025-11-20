@@ -15,16 +15,28 @@ export const characterApi = {
   /**
    * Get characters with filters
    */
-  getCharacters: (filters: CharacterFilters) =>
-    apiClient.get<CharactersResponse>('/characters', {
-      params: {
-        tab: filters.tab,
-        sort: filters.sort,
-        page: filters.page,
-        perPage: filters.perPage,
-        wallet: filters.wallet,
-      },
-    }),
+  getCharacters: async (params: CharacterFilters): Promise<CharactersResponse> => {
+    console.log('API getCharacters called with params:', params);
+    const searchParams = new URLSearchParams()
+    searchParams.set('tab', params.tab)
+    searchParams.set('sort', params.sort)
+    searchParams.set('page', params.page.toString())
+    searchParams.set('perPage', params.perPage.toString())
+    if (params.wallet) searchParams.set('wallet', params.wallet)
+
+    const url = `/api/characters?${searchParams}`;
+    console.log('Fetching URL:', url);
+    const response = await fetch(url)
+
+    if (!response.ok) {
+      console.error('API fetch failed:', response.status, response.statusText);
+      throw new Error('Failed to fetch characters')
+    }
+
+    const data = await response.json();
+    console.log('API response data:', data);
+    return data as CharactersResponse;
+  },
 
   /**
    * Get single character by token ID

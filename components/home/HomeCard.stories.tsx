@@ -68,3 +68,72 @@ export const CustomStyling: Story = {
   },
   name: 'With Custom Styling',
 };
+
+export const GothicDarkTales: Story = {
+  name: 'Gothic - Dark Tales',
+  args: {
+    title: 'Dark Tales',
+    description: 'Bequathed by the abyss, these stories haunt the realm',
+    imageSrc: mockImage,
+    href: '/lore',
+  },
+  parameters: {
+    docs: {
+      description: {
+        story: 'Gothic fantasy themed card for dark storytelling content',
+      },
+    },
+  },
+};
+
+export const GothicCharacterSheets: Story = {
+  name: 'Gothic - Character Sheets',
+  args: {
+    title: 'Character Sheets',
+    description: 'Forge your destiny in the depths of perdition',
+    imageSrc: mockImage,
+    href: '/characters',
+  },
+  parameters: {
+    docs: {
+      description: {
+        story: 'Gothic fantasy themed card for character management',
+      },
+    },
+  },
+};
+
+export const GothicAllVariants: Story = {
+  name: 'All Gothic Variants',
+  render: () => (
+    <div className="space-y-8 max-w-4xl">
+      <div>
+        <h3 className="text-bone font-wagdie text-lg mb-4 tracking-wide uppercase">Explore the Realm</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <HomeCard
+            title="dark tales"
+            description="Bequathed by the abyss, these stories haunt the realm"
+            imageSrc={mockImage}
+            href="/lore"
+          />
+          <HomeCard
+            title="character sheets"
+            description="Forge your destiny in the depths of perdition"
+            imageSrc={mockImage}
+            href="/characters"
+          />
+        </div>
+      </div>
+    </div>
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story: 'Collection of all gothic-themed HomeCard variants',
+      },
+    },
+    backgrounds: {
+      default: 'dark',
+    },
+  },
+};

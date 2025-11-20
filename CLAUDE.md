@@ -15,6 +15,8 @@ Auto-generated from all feature plans. Last updated: 2025-11-05
 - N/A (refactoring existing code, no database changes) (008-map-refactor)
 - TypeScript 5+, React 18+, Node.js 18+ + @storybook/react@8.x, @storybook/react-vite, @storybook/nextjs, storybook CLI (009-storybook)
 - N/A (development tool, no persistent storage) (009-storybook)
+- TypeScript 5.0+ (Constitution Requirement) + Next.js 15+, React 18+, Leaflet 1.9+, React-Leaflet 7+ (from existing map refactor) (001-map-assets-import)
+- Static files in public/images/ (flat structure), browser localStorage for asset caching (001-map-assets-import)
 
 - TypeScript 5+ (Node.js 18+ for migration scripts) + Firebase Admin SDK, Supabase JS client, ethers.js (for address normalization) (001-migration-plan)
 
@@ -52,6 +54,7 @@ npm run lint
 TypeScript 5+ (Node.js 18+ for migration scripts): Follow standard conventions
 
 ## Recent Changes
+- 001-map-assets-import: Added TypeScript 5.0+ (Constitution Requirement) + Next.js 15+, React 18+, Leaflet 1.9+, React-Leaflet 7+ (from existing map refactor)
 - 009-storybook: Added TypeScript 5+, React 18+, Node.js 18+ + @storybook/react@8.x, @storybook/react-vite, @storybook/nextjs, storybook CLI
 
 - **008-map-refactor (COMPLETED)**: Complete map architecture refactor
@@ -65,7 +68,6 @@ TypeScript 5+ (Node.js 18+ for migration scripts): Follow standard conventions
   - ✅ 5.42 kB bundle size (outstanding!)
   - ✅ Component architecture documented
 
-- 008-map-refactor: Added TypeScript 5+ + React 18, React-Leaflet 7+, Leaflet 1.9+, Next.js 15 (App Router), Tailwind CSS 3.4
 
 <!-- MANUAL ADDITIONS START -->
 
