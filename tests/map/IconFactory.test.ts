@@ -16,7 +16,7 @@ jest.mock('leaflet', () => ({
 }));
 
 // Mock the asset loading service
-jest.mock('@/lib/services/AssetLoadingService', () => ({
+jest.mock('@/lib/services/asset-loading-service', () => ({
   getAssetLoadingService: jest.fn(() => ({
     loadAsset: jest.fn(),
     getAssetState: jest.fn(),
@@ -28,7 +28,7 @@ jest.mock('@/lib/services/AssetLoadingService', () => ({
 describe('IconFactory', () => {
   // Import after mocking
   const { getIconFactory } = require('@/components/map/IconFactory');
-  const { getAssetLoadingService } = require('@/lib/services/AssetLoadingService');
+  const { getAssetLoadingService } = require('@/lib/services/asset-loading-service');
 
   let iconFactory: any;
   let mockLoadingService: any;

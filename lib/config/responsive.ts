@@ -5,7 +5,7 @@
  * and device-specific optimizations for WAGDIE map assets.
  */
 
-import type { ResponsiveBreakpoints, DeviceType } from '@/lib/utils/ViewportDetection';
+import type { ResponsiveBreakpoints, DeviceType } from '@/lib/utils/viewport-detection';
 
 /**
  * WAGDIE-specific responsive breakpoints

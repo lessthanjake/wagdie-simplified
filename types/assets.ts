@@ -66,9 +66,13 @@ export interface AssetLoadingState {
   status: 'loading' | 'loaded' | 'failed' | 'retrying' | 'fallback';
   loadStartTime: number;    // Timestamp when loading started
   loadEndTime?: number;     // Timestamp when loading completed/failed
+  loadTime?: number;        // Time taken to load
   retryCount: number;       // Number of retry attempts
   lastError?: string;       // Last error message
   usedFallback: boolean;    // Whether fallback asset is being used
+  cached?: boolean;         // Whether asset was loaded from cache
+  url?: string;             // URL of the loaded asset
+  size?: number;            // Size of the asset in bytes
 }
 
 // Asset loading context
@@ -153,6 +157,23 @@ export interface AssetLoadingService {
   getPerformanceMetrics(): PerformanceReport;
 }
 
+// Asset Error Handler Interface
+export interface AssetErrorHandler {
+  handleError(error: AssetError): void;
+  isRetryableError(error: AssetError): boolean;
+  getRetryDelay(error: AssetError, attempt: number): number;
+  logError(error: AssetError): void;
+  getFallbackAsset(assetId: string): string | null;
+  useFallbackAsset(assetId: string): string | null;
+  getErrorStats(): {
+    total: number;
+    byType: Record<AssetError['errorType'], number>;
+    byAsset: Record<string, number>;
+    recentErrors: AssetError[];
+  };
+  clearErrorLog(): void;
+}
+
 // Enhanced IconFactory interface
 export interface EnhancedIconFactory {
   createIcon(type: IconType, isMobile: boolean): any; // L.Icon - using any to avoid Leaflet import
@@ -190,6 +211,9 @@ export interface UseAssetLoadingReturn {
   error: string | null;
   assets: Map<string, AssetLoadingState>;
   criticalLoaded: boolean;
+  loadAsset: (assetId: string) => Promise<void>;
+  loadAssets: (assetIds: string[]) => Promise<void>;
+  getAssetState: (assetId: string) => AssetLoadingState | undefined;
   retryAsset: (assetId: string) => void;
   preloadAssets: (assetIds: string[]) => void;
   metrics: PerformanceReport | null;

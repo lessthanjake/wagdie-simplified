@@ -7,8 +7,8 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import L from 'leaflet';
-import { getAssetLoadingService } from '@/lib/services/AssetLoadingService';
-import { getAssetPerformanceMonitor } from '@/lib/utils/AssetPerformance';
+import { getAssetLoadingService } from '@/lib/services/asset-loading-service';
+import { getAssetPerformanceMonitor } from '@/lib/utils/asset-performance';
 import type {
   IconType,
   AssetLoadingState,

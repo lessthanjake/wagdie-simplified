@@ -12,7 +12,7 @@
 import { describe, test, expect, beforeEach, afterEach, jest } from '@jest/globals';
 
 // Mock the asset loading service
-jest.mock('@/lib/services/AssetLoadingService', () => {
+jest.mock('@/lib/services/asset-loading-service', () => {
   return {
     AssetLoadingService: jest.fn().mockImplementation(() => ({
       loadAsset: jest.fn(),
@@ -26,7 +26,7 @@ jest.mock('@/lib/services/AssetLoadingService', () => {
 });
 
 // Mock the asset cache
-jest.mock('@/lib/services/AssetCache', () => {
+jest.mock('@/lib/services/asset-cache', () => {
   return {
     getAssetCache: jest.fn().mockReturnValue({
       get: jest.fn(),
@@ -47,7 +47,7 @@ jest.mock('@/lib/services/AssetCache', () => {
 });
 
 // Mock the asset optimizer
-jest.mock('@/lib/utils/AssetOptimization', () => {
+jest.mock('@/lib/utils/asset-optimization', () => {
   return {
     getAssetOptimizer: jest.fn().mockReturnValue({
       optimizeImageUrl: jest.fn(),
@@ -68,12 +68,12 @@ global.Image = class {
   onload: (() => void) | null = null;
   onerror: (() => void) | null = null;
   src: string = '';
-  constructor() {}
+  constructor() { }
 } as any;
 
-import { AssetLoadingService } from '@/lib/services/AssetLoadingService';
-import { getAssetCache } from '@/lib/services/AssetCache';
-import { getAssetOptimizer } from '@/lib/utils/AssetOptimization';
+import { AssetLoadingService } from '@/lib/services/asset-loading-service';
+import { getAssetCache } from '@/lib/services/asset-cache';
+import { getAssetOptimizer } from '@/lib/utils/asset-optimization';
 
 describe('Asset Loading Performance', () => {
   let assetLoadingService: AssetLoadingService;
@@ -102,7 +102,7 @@ describe('Asset Loading Performance', () => {
       // Mock fast loading for critical assets
       mockCache.get.mockReturnValue(null); // Cache miss
 
-      assetLoadingService.loadAsset = jest.fn().mockImplementation(async (assetId: string) => {
+      assetLoadingService.loadAsset = jest.fn(async (assetId: string) => {
         const startTime = Date.now();
 
         // Simulate loading time based on asset type
@@ -121,7 +121,7 @@ describe('Asset Loading Performance', () => {
 
         return {
           assetId,
-          status: 'loaded',
+          status: 'loaded' as const,
           loadStartTime: startTime,
           loadEndTime: endTime,
           loadTime: endTime - startTime,
@@ -149,12 +149,12 @@ describe('Asset Loading Performance', () => {
       const nonCriticalAssets = ['legend-location', 'legend-burn'];
       const loadOrder: string[] = [];
 
-      assetLoadingService.loadAsset = jest.fn().mockImplementation(async (assetId: string) => {
+      assetLoadingService.loadAsset = jest.fn(async (assetId: string) => {
         loadOrder.push(assetId);
         await new Promise(resolve => setTimeout(resolve, 100));
         return {
           assetId,
-          status: 'loaded',
+          status: 'loaded' as const,
           loadStartTime: Date.now(),
           loadEndTime: Date.now(),
           loadTime: 100,
@@ -216,14 +216,14 @@ describe('Asset Loading Performance', () => {
         return null;
       });
 
-      assetLoadingService.loadAsset = jest.fn().mockImplementation(async (id: string) => {
+      assetLoadingService.loadAsset = jest.fn(async (id: string) => {
         if (id === assetId) {
           cacheHits++;
           await new Promise(resolve => setTimeout(resolve, 100));
         }
         return {
           assetId: id,
-          status: 'loaded',
+          status: 'loaded' as const,
           loadStartTime: Date.now(),
           loadEndTime: Date.now(),
           loadTime: 100,
@@ -264,11 +264,11 @@ describe('Asset Loading Performance', () => {
         evictionCount: 5,
       });
 
-      assetLoadingService.loadAsset = jest.fn().mockImplementation(async (assetId: string) => {
+      assetLoadingService.loadAsset = jest.fn(async (assetId: string) => {
         await new Promise(resolve => setTimeout(resolve, 50));
         return {
           assetId,
-          status: 'loaded',
+          status: 'loaded' as const,
           loadStartTime: Date.now(),
           loadEndTime: Date.now(),
           loadTime: 50,
@@ -302,11 +302,11 @@ describe('Asset Loading Performance', () => {
         writable: true,
       });
 
-      assetLoadingService.loadAsset = jest.fn().mockImplementation(async (assetId: string) => {
+      assetLoadingService.loadAsset = jest.fn(async (assetId: string) => {
         await new Promise(resolve => setTimeout(resolve, 100));
         return {
           assetId,
-          status: 'loaded',
+          status: 'loaded' as const,
           loadStartTime: Date.now(),
           loadEndTime: Date.now(),
           loadTime: 100,
@@ -332,7 +332,7 @@ describe('Asset Loading Performance', () => {
       let concurrentCount = 0;
       let maxConcurrentReached = 0;
 
-      assetLoadingService.loadAsset = jest.fn().mockImplementation(async (assetId: string) => {
+      assetLoadingService.loadAsset = jest.fn(async (assetId: string) => {
         concurrentCount++;
         maxConcurrentReached = Math.max(maxConcurrentReached, concurrentCount);
 
@@ -341,7 +341,7 @@ describe('Asset Loading Performance', () => {
         concurrentCount--;
         return {
           assetId,
-          status: 'loaded',
+          status: 'loaded' as const,
           loadStartTime: Date.now(),
           loadEndTime: Date.now(),
           loadTime: 200,
@@ -362,12 +362,12 @@ describe('Asset Loading Performance', () => {
       const totalAssets = 8;
       const completedOrder: string[] = [];
 
-      assetLoadingService.loadAsset = jest.fn().mockImplementation(async (assetId: string) => {
+      assetLoadingService.loadAsset = jest.fn(async (assetId: string) => {
         completedOrder.push(assetId);
         await new Promise(resolve => setTimeout(resolve, 100));
         return {
           assetId,
-          status: 'loaded',
+          status: 'loaded' as const,
           loadStartTime: Date.now(),
           loadEndTime: Date.now(),
           loadTime: 100,
@@ -412,11 +412,11 @@ describe('Asset Loading Performance', () => {
         memoryUsage: 0.9, // 90% memory usage
       });
 
-      assetLoadingService.loadAsset = jest.fn().mockImplementation(async (assetId: string) => {
+      assetLoadingService.loadAsset = jest.fn(async (assetId: string) => {
         await new Promise(resolve => setTimeout(resolve, 50));
         return {
           assetId,
-          status: 'loaded',
+          status: 'loaded' as const,
           loadStartTime: Date.now(),
           loadEndTime: Date.now(),
           loadTime: 50,
@@ -446,12 +446,12 @@ describe('Asset Loading Performance', () => {
         totalEstimatedSize += options?.size || 0;
       });
 
-      assetLoadingService.loadAsset = jest.fn().mockImplementation(async (assetId: string) => {
+      assetLoadingService.loadAsset = jest.fn(async (assetId: string) => {
         const asset = assets.find(a => a.id === assetId);
         await new Promise(resolve => setTimeout(resolve, 50));
         return {
           assetId,
-          status: 'loaded',
+          status: 'loaded' as const,
           loadStartTime: Date.now(),
           loadEndTime: Date.now(),
           loadTime: 50,
@@ -493,7 +493,7 @@ describe('Asset Loading Performance', () => {
         priority: 'high',
       });
 
-      expect(optimization.format).toBeOneOf(optimizedFormats);
+      expect(optimizedFormats).toContain(optimization.format);
       expect(optimization.compressionRatio).toBeGreaterThan(0.3);
       expect(optimization.optimizedUrl).not.toBe(assetUrl);
     });
@@ -548,7 +548,7 @@ describe('Asset Loading Performance', () => {
       const retryDelays: number[] = [];
       let attemptCount = 0;
 
-      assetLoadingService.loadAsset = jest.fn().mockImplementation(async (id: string) => {
+      assetLoadingService.loadAsset = jest.fn(async (id: string) => {
         attemptCount++;
         retryDelays.push(Date.now());
 
@@ -558,7 +558,7 @@ describe('Asset Loading Performance', () => {
 
         return {
           assetId: id,
-          status: 'loaded',
+          status: 'loaded' as const,
           loadStartTime: Date.now(),
           loadEndTime: Date.now(),
           loadTime: 100,
@@ -568,7 +568,7 @@ describe('Asset Loading Performance', () => {
       });
 
       // Mock retry logic
-      assetLoadingService.retryAsset = jest.fn().mockImplementation(async (id: string) => {
+      assetLoadingService.retryAsset = jest.fn(async (id: string) => {
         await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attemptCount - 1)));
         return assetLoadingService.loadAsset(id);
       });
@@ -585,11 +585,11 @@ describe('Asset Loading Performance', () => {
 
       mockOptimizer.optimizeImageUrl.mockRejectedValue(new Error('Optimization failed'));
 
-      assetLoadingService.loadAsset = jest.fn().mockImplementation(async (id: string) => {
+      assetLoadingService.loadAsset = jest.fn(async (id: string) => {
         // Simulate immediate fallback usage
         return {
           assetId: id,
-          status: 'loaded',
+          status: 'loaded' as const,
           loadStartTime: Date.now(),
           loadEndTime: Date.now(),
           loadTime: 50, // Quick fallback

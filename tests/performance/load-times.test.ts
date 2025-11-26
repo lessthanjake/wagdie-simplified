@@ -8,10 +8,10 @@
 import { describe, test, expect, beforeEach, afterEach, jest } from '@jest/globals';
 
 // Mock performance monitoring utilities
-jest.mock('@/lib/utils/AssetPerformance', () => {
+jest.mock('@/lib/utils/asset-performance', () => {
   return {
     getAssetPerformanceMonitor: jest.fn().mockReturnValue({
-      startMeasure: jest.fn().mockReturnValue(() => {}),
+      startMeasure: jest.fn().mockReturnValue(() => { }),
       recordLoadTime: jest.fn(),
       recordCacheHit: jest.fn(),
       recordCacheMiss: jest.fn(),
@@ -42,7 +42,7 @@ Object.defineProperty(global, 'performance', {
   writable: true,
 });
 
-import { getAssetPerformanceMonitor } from '@/lib/utils/AssetPerformance';
+import { getAssetPerformanceMonitor } from '@/lib/utils/asset-performance';
 
 describe('Load Time Monitoring', () => {
   let performanceMonitor: any;

@@ -19,10 +19,10 @@ import type {
   EnhancedIconFactory as IEnhancedIconFactory,
   IconType as NewIconType
 } from '@/types/assets';
-import { getAssetLoadingService } from '@/lib/services/AssetLoadingService';
-import { getAssetErrorHandler } from '@/lib/services/AssetErrorHandler';
-import { getAssetPerformanceMonitor } from '@/lib/utils/AssetPerformance';
-import { getViewportInfo } from '@/lib/utils/ViewportDetection';
+import { getAssetLoadingService } from '@/lib/services/asset-loading-service';
+import { getAssetErrorHandler } from '@/lib/services/asset-error-handler';
+import { getAssetPerformanceMonitor } from '@/lib/utils/asset-performance';
+import { getViewportInfo } from '@/lib/utils/viewport-detection';
 import {
   getAssetScaling,
   getResponsiveAssetSize as getConfiguredSize,

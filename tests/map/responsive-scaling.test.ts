@@ -18,7 +18,7 @@ const mockWindow = {
 } as any;
 
 // Mock the viewport detection module
-jest.mock('@/lib/utils/ViewportDetection', () => ({
+jest.mock('@/lib/utils/viewport-detection', () => ({
   getViewportInfo: jest.fn(),
   getResponsiveValue: jest.fn(),
   getResponsiveScale: jest.fn(),
@@ -62,7 +62,7 @@ jest.mock('@/components/map/IconFactory', () => ({
   getIconFactory: jest.fn(),
 }));
 
-import { getViewportInfo } from '@/lib/utils/ViewportDetection';
+import { getViewportInfo } from '@/lib/utils/viewport-detection';
 import { getAssetScaling, getResponsiveAssetSize } from '@/lib/config/responsive';
 import { getIconFactory } from '@/components/map/IconFactory';
 

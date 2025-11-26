@@ -6,9 +6,9 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { getAssetLoadingService } from '@/lib/services/AssetLoadingService';
-import { getAssetErrorHandler } from '@/lib/services/AssetErrorHandler';
-import { getAssetPerformanceMonitor } from '@/lib/utils/AssetPerformance';
+import { getAssetLoadingService } from '@/lib/services/asset-loading-service';
+import { getAssetErrorHandler } from '@/lib/services/asset-error-handler';
+import { getAssetPerformanceMonitor } from '@/lib/utils/asset-performance';
 import type {
   AssetLoadingState,
   PerformanceReport,
