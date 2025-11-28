@@ -127,11 +127,11 @@ export function Header() {
       {/* Menu Drawer (Desktop & Mobile) */}
       {isDrawerOpen && (
         <div
-          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50"
+          className="fixed inset-0 top-16 bg-black/80 backdrop-blur-sm z-50"
           onClick={closeDrawer}
         >
           <div
-            className="fixed right-0 top-0 h-full w-80 bg-soul-950 border-l border-neutral-800 shadow-2xl overflow-y-auto"
+            className="fixed right-0 top-0.5 h-[calc(100vh-4rem)] w-80 bg-soul-950 border-l border-neutral-800 shadow-2xl overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Drawer Header */}
