@@ -415,7 +415,6 @@ export class AssetCache {
    * Cleanup expired entries
    */
   private cleanup(): void {
-    const now = Date.now();
     const keysToDelete: string[] = [];
 
     for (const [key, entry] of this.cache.entries()) {

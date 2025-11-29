@@ -6,7 +6,7 @@
 'use client'
 
 import React from 'react';
-import { Tabs, Button } from '@/components-new'
+import { Tabs } from '@/components-new'
 import type { TabItem } from '@/components-new'
 import type { CharacterFilterTab, SortOrder } from '@/types/character'
 

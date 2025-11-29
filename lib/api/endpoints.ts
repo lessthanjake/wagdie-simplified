@@ -5,6 +5,7 @@
 
 import { apiClient } from './client'
 import type { Character, CharacterFilters, CharactersResponse, CharacterConcord, Concord } from '@/types/character'
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { Tweet, TweetFilters, TweetsResponse } from '@/types/tweet'
 import type { UserSession } from '@/types/wallet'
 

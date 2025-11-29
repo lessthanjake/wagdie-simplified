@@ -27,8 +27,8 @@ export function getIpfsUrl(ipfsUri: string | undefined | null): string | null {
  */
 export function getCharacterImageUrl(
   tokenId: number,
-  ipfsUri?: string | null,
-  fallbackUrl?: string | null
+  _ipfsUri?: string | null,
+  _fallbackUrl?: string | null
 ): string {
   // Primary: local image (downloaded from IPFS)
   const localPath = getLocalImagePath(tokenId)

@@ -204,6 +204,13 @@ export class AssetErrorHandler implements IAssetErrorHandler {
   }
 
   /**
+   * Get error log
+   */
+  getErrorLog(): AssetError[] {
+    return [...this.errorLog];
+  }
+
+  /**
    * Get retry strategy for error type
    */
   private getRetryStrategy(errorType: AssetError['errorType']): ErrorRecoveryStrategy {

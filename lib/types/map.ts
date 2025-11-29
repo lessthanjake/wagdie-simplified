@@ -8,7 +8,11 @@
  * - UI state types
  */
 
-import type { LatLngExpression } from 'leaflet';
+/**
+ * Position type for map coordinates (replaces Leaflet's MapPosition)
+ * Can be [lat, lng] tuple or {lat: number, lng: number} object
+ */
+export type MapPosition = [number, number] | { lat: number; lng: number };
 
 // ============================================================================
 // Core Entity Types
@@ -86,7 +90,7 @@ export type MarkerType = 'location' | 'character' | 'burn' | 'death' | 'fight';
 export interface MapMarkerData {
   id: string;
   type: MarkerType;
-  position: LatLngExpression;
+  position: MapPosition;
   data: Location | CharacterLocation | EventMarker;
   iconUrl?: string;
 }
@@ -100,7 +104,7 @@ export interface EventMarker {
   title: string;
   description?: string;
   timestamp: string;
-  position: LatLngExpression;
+  position: MapPosition;
 }
 
 /**
@@ -226,7 +230,7 @@ export interface CharacterLocationService {
  */
 export interface MapMarkerProps {
   id: string;
-  position: LatLngExpression;
+  position: MapPosition;
   type: MarkerType;
   data: Location | CharacterLocation | EventMarker;
   iconUrl?: string;
@@ -238,7 +242,7 @@ export interface MapMarkerProps {
  * Props for NativeMap component
  */
 export interface NativeMapProps {
-  center?: LatLngExpression;
+  center?: MapPosition;
   zoom?: number;
   onMove?: (bounds: MapBounds) => void;
   onMarkerClick?: (marker: MapMarkerData) => void;

@@ -14,7 +14,7 @@ const CharacterListPanelComponent = function CharacterListPanelComponent({
   characters,
   connectedWallet,
   onCharacterSelect,
-  onClose,
+  onClose: _onClose,
 }: CharacterListPanelProps) {
   const [selectedCharacter, setSelectedCharacter] = useState<number | null>(null);
 
@@ -120,7 +120,7 @@ const CharacterListPanelComponent = function CharacterListPanelComponent({
         role="list"
         aria-label="Your characters"
       >
-        {userCharacters.map((character, index) => (
+        {userCharacters.map((character) => (
           <button
             key={character.character_token_id}
             onClick={() => handleCharacterClick(character)}

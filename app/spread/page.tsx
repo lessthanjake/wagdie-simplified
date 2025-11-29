@@ -9,8 +9,6 @@ import { useState, useEffect } from 'react'
 import { useAccount } from 'wagmi'
 import toast from 'react-hot-toast'
 import { BannerHeader } from '@/components/shared/BannerHeader'
-import { DialogBurnCorpseApproval } from '@/components/spread/DialogBurnCorpseApproval'
-import { DialogSpreadingApproval } from '@/components/spread/DialogSpreadingApproval'
 import { SpreadInfect } from '@/components/spread/SpreadInfect'
 import { InfectionModal } from '@/components/modals/InfectionModal'
 import { CorpseBurningModal } from '@/components/modals/CorpseBurningModal'
@@ -18,17 +16,16 @@ import { Card, CardHeader, CardTitle, CardContent, Button, Empty } from '@/compo
 import { useSpread } from '@/hooks/useSpread'
 import { useSingleTokenBalance } from '@/hooks/useTokenBalances'
 import { useCorpseBurning } from '@/hooks/useCorpseBurning'
-import { CONTRACTS } from '@/lib/services/wallet-service'
 import { formatEther } from 'viem'
 
 export default function SpreadPage() {
-  const { address, isConnected } = useAccount()
+  const { isConnected } = useAccount()
 
   // Blockchain hooks
   const { balance: mushroomBalance, refetch: refetchMushroom } = useSingleTokenBalance('mushroom')
   const { balance: corpseBalance, refetch: refetchCorpse } = useSingleTokenBalance('corpse')
   const { infectionPrice, fetchInfectionPrice } = useSpread()
-  const { corpseBalance: corpseBalanceFromHook, fetchBalances } = useCorpseBurning()
+  const { fetchBalances } = useCorpseBurning()
 
   // State
   const [mode, setMode] = useState<'spread' | 'infect'>('spread')
@@ -62,12 +59,12 @@ export default function SpreadPage() {
   }
 
   // Open infection modal for random spread
-  const handleSpread = async (amount: number) => {
+  const handleSpread = async (_amount: number) => {
     setShowInfectionModal(true)
   }
 
   // Open infection modal for targeted infection
-  const handleInfect = async (tokenId: number) => {
+  const handleInfect = async (_tokenId: number) => {
     toast('Use the character detail page to infect specific characters')
   }
 

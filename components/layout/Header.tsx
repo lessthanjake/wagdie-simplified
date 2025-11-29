@@ -5,7 +5,6 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Navigation } from './Navigation'
 import { WalletButton } from '@/components/wallet/WalletButton'
-import { Button } from '@/components-new'
 
 /**
  * Header Component
@@ -32,6 +31,7 @@ export function Header() {
     setIsDrawerOpen(false)
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const toggleDarkMode = () => {
     setDarkMode(!darkMode)
     document.documentElement.classList.toggle('dark')

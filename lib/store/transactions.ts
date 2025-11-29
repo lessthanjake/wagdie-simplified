@@ -3,7 +3,7 @@
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { TransactionState, TransactionStatus, TransactionHash } from '@/types/blockchain'
+import { TransactionState, TransactionStatus } from '@/types/blockchain'
 
 export interface TransactionRecord extends TransactionState {
   id: string
@@ -68,6 +68,7 @@ export const useTransactionStore = create<TransactionStore>()(
 
       removeTransaction: (id) => {
         set((state) => {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
           const { [id]: removed, ...rest } = state.transactions
           return { transactions: rest }
         })

@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useMemo } from 'react';
-import { eventService } from '@/lib/services/eventService';
+import { eventService } from '@/lib/services/event-service';
 import type { EventMarker } from '@/lib/types/map';
 
 interface EventMarkerData {
