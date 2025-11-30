@@ -1,9 +1,14 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
+import { getSession } from '@/lib/auth/session'
 
 export async function POST() {
   try {
     const cookieStore = await cookies()
+
+    // Clear iron-session
+    const session = await getSession()
+    session.destroy()
 
     // Clear session cookies by setting them to expire immediately
     // Must use set() with maxAge: 0 to properly clear cookies with path

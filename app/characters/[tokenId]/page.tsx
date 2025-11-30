@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAccount } from 'wagmi'
 import { useParams, useRouter } from 'next/navigation'
 import Image from 'next/image'
@@ -8,6 +8,11 @@ import toast from 'react-hot-toast'
 import { getLocalImagePath, getCharacterImageFallback } from '@/lib/utils/image'
 import { SheetBackgroundStory } from '@/components/characters/SheetBackgroundStory'
 import { SheetEquipment } from '@/components/characters/SheetEquipment'
+import { NameEditor } from '@/components/characters/NameEditor'
+import { CoreStatsEditor } from '@/components/characters/CoreStatsEditor'
+import { DerivedStatsEditor } from '@/components/characters/DerivedStatsEditor'
+import { LevelExperienceEditor } from '@/components/characters/LevelExperienceEditor'
+import { EmptyStatsPrompt } from '@/components/characters/EmptyStatsPrompt'
 import { OwnershipVerificationBanner } from '@/components/OwnershipVerificationBanner'
 import { TokenBalancesCard } from '@/components/TokenBalancesCard'
 import { StakingStatusCard } from '@/components/StakingStatusCard'
@@ -65,6 +70,25 @@ export default function CharacterDetailPage() {
   const [isEditMode, setIsEditMode] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [editedStory, setEditedStory] = useState('')
+  const [editedName, setEditedName] = useState('')
+  const [editedCoreStats, setEditedCoreStats] = useState({
+    str: null as number | null,
+    dex: null as number | null,
+    con: null as number | null,
+    int: null as number | null,
+    wis: null as number | null,
+    cha: null as number | null,
+  })
+  const [editedDerivedStats, setEditedDerivedStats] = useState({
+    hp: null as number | null,
+    max_hp: null as number | null,
+    ac: null as number | null,
+    speed: null as number | null,
+  })
+  const [editedLevelExp, setEditedLevelExp] = useState({
+    level: null as number | null,
+    experience: null as number | null,
+  })
   const [isSearingModalOpen, setIsSearingModalOpen] = useState(false)
   const [isInfectionModalOpen, setIsInfectionModalOpen] = useState(false)
   const [isCureModalOpen, setIsCureModalOpen] = useState(false)
@@ -81,6 +105,29 @@ export default function CharacterDetailPage() {
         setCharacter(data)
         const story = data.metadata?.background_story || data.background_story || ''
         setEditedStory(story)
+        const characterName = data.metadata?.name || data.name || ''
+        setEditedName(characterName)
+        // Initialize core stats
+        setEditedCoreStats({
+          str: data.str ?? null,
+          dex: data.dex ?? null,
+          con: data.con ?? null,
+          int: data.int ?? null,
+          wis: data.wis ?? null,
+          cha: data.cha ?? null,
+        })
+        // Initialize derived stats
+        setEditedDerivedStats({
+          hp: data.hp ?? null,
+          max_hp: data.max_hp ?? null,
+          ac: data.ac ?? null,
+          speed: data.speed ?? null,
+        })
+        // Initialize level/experience
+        setEditedLevelExp({
+          level: data.level ?? null,
+          experience: data.experience ?? null,
+        })
       } catch (error) {
         console.error('Error fetching character:', error)
         toast.error('Failed to load character')
@@ -91,33 +138,186 @@ export default function CharacterDetailPage() {
     fetchCharacter()
   }, [tokenId])
 
+  // Track if there are unsaved changes
+  const hasUnsavedChanges = useCallback(() => {
+    if (!character || !isEditMode) return false
+
+    const originalName = character.metadata?.name || character.name || ''
+    if (editedName !== originalName) return true
+
+    const originalStory = character.metadata?.background_story || character.background_story || ''
+    if (editedStory !== originalStory) return true
+
+    const coreStatKeys = ['str', 'dex', 'con', 'int', 'wis', 'cha'] as const
+    for (const key of coreStatKeys) {
+      if (editedCoreStats[key] !== (character[key] ?? null)) return true
+    }
+
+    const derivedStatKeys = ['hp', 'max_hp', 'ac', 'speed'] as const
+    for (const key of derivedStatKeys) {
+      if (editedDerivedStats[key] !== (character[key] ?? null)) return true
+    }
+
+    if (editedLevelExp.level !== (character.level ?? null)) return true
+    if (editedLevelExp.experience !== (character.experience ?? null)) return true
+
+    return false
+  }, [character, isEditMode, editedName, editedStory, editedCoreStats, editedDerivedStats, editedLevelExp])
+
   const isOwner = character && address
     ? character.owner_address?.toLowerCase() === address.toLowerCase()
     : false
 
-  const handleEditToggle = () => {
+  // Reset all edited values to original character data
+  const resetEditedValues = useCallback(() => {
+    const story = character?.metadata?.background_story || character?.background_story || ''
+    setEditedStory(story)
+    const characterName = character?.metadata?.name || character?.name || ''
+    setEditedName(characterName)
+    setEditedCoreStats({
+      str: character?.str ?? null,
+      dex: character?.dex ?? null,
+      con: character?.con ?? null,
+      int: character?.int ?? null,
+      wis: character?.wis ?? null,
+      cha: character?.cha ?? null,
+    })
+    setEditedDerivedStats({
+      hp: character?.hp ?? null,
+      max_hp: character?.max_hp ?? null,
+      ac: character?.ac ?? null,
+      speed: character?.speed ?? null,
+    })
+    setEditedLevelExp({
+      level: character?.level ?? null,
+      experience: character?.experience ?? null,
+    })
+  }, [character])
+
+  const handleEditToggle = useCallback(() => {
     if (isEditMode) {
-      const story = character?.metadata?.background_story || character?.background_story || ''
-      setEditedStory(story)
+      resetEditedValues()
     }
     setIsEditMode(!isEditMode)
-  }
+  }, [isEditMode, resetEditedValues])
+
+  // Escape key handler to cancel edit mode
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isEditMode) {
+        if (hasUnsavedChanges()) {
+          const confirmCancel = window.confirm('You have unsaved changes. Are you sure you want to cancel?')
+          if (!confirmCancel) return
+        }
+        handleEditToggle()
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [isEditMode, hasUnsavedChanges, handleEditToggle])
+
+  // Unsaved changes warning when navigating away
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges()) {
+        e.preventDefault()
+        e.returnValue = 'You have unsaved changes. Are you sure you want to leave?'
+        return e.returnValue
+      }
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [hasUnsavedChanges])
 
   const handleSave = async () => {
     if (!character) return
     try {
       setIsSaving(true)
+
+      // Build update payload with name, story, and stats
+      const updates: Record<string, unknown> = {}
+
+      // Include name if changed
+      const originalName = character.metadata?.name || character.name || ''
+      if (editedName !== originalName) {
+        updates.name = editedName
+      }
+
+      // Include story if changed
+      const originalStory = character.metadata?.background_story || character.background_story || ''
+      if (editedStory !== originalStory) {
+        updates.background_story = editedStory
+      }
+
+      // Include core stats if changed
+      const coreStatKeys = ['str', 'dex', 'con', 'int', 'wis', 'cha'] as const
+      for (const key of coreStatKeys) {
+        const originalValue = character[key] ?? null
+        const editedValue = editedCoreStats[key]
+        if (editedValue !== originalValue) {
+          updates[key] = editedValue
+        }
+      }
+
+      // Include derived stats if changed
+      const derivedStatKeys = ['hp', 'max_hp', 'ac', 'speed'] as const
+      for (const key of derivedStatKeys) {
+        const originalValue = character[key] ?? null
+        const editedValue = editedDerivedStats[key]
+        if (editedValue !== originalValue) {
+          updates[key] = editedValue
+        }
+      }
+
+      // Include level/experience if changed
+      if (editedLevelExp.level !== (character.level ?? null)) {
+        updates.level = editedLevelExp.level
+      }
+      if (editedLevelExp.experience !== (character.experience ?? null)) {
+        updates.experience = editedLevelExp.experience
+      }
+
+      // Only send request if there are changes
+      if (Object.keys(updates).length === 0) {
+        setIsEditMode(false)
+        toast.success('No changes to save')
+        return
+      }
+
       const response = await fetch(`/api/characters/${tokenId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ background_story: editedStory }),
+        body: JSON.stringify(updates),
       })
       if (!response.ok) {
         const error = await response.json()
         throw new Error(error.error || 'Failed to save')
       }
       const updated = await response.json()
+
+      // Optimistic update - update state immediately
       setCharacter(updated)
+      setEditedName(updated.name || '')
+      setEditedCoreStats({
+        str: updated.str ?? null,
+        dex: updated.dex ?? null,
+        con: updated.con ?? null,
+        int: updated.int ?? null,
+        wis: updated.wis ?? null,
+        cha: updated.cha ?? null,
+      })
+      setEditedDerivedStats({
+        hp: updated.hp ?? null,
+        max_hp: updated.max_hp ?? null,
+        ac: updated.ac ?? null,
+        speed: updated.speed ?? null,
+      })
+      setEditedLevelExp({
+        level: updated.level ?? null,
+        experience: updated.experience ?? null,
+      })
       setIsEditMode(false)
       toast.success('Character updated successfully!')
     } catch (error: any) {
@@ -172,6 +372,33 @@ export default function CharacterDetailPage() {
   ]
 
   const hasCharacterSheet = attrs.str > 0 || attrs.dex > 0 || attrs.con > 0
+
+  // Check if character has any stats (for empty stats prompt)
+  const hasAnyStats = character && (
+    character.str != null && character.str > 0 ||
+    character.dex != null && character.dex > 0 ||
+    character.con != null && character.con > 0 ||
+    character.int != null && character.int > 0 ||
+    character.wis != null && character.wis > 0 ||
+    character.cha != null && character.cha > 0 ||
+    character.hp != null && character.hp > 0 ||
+    character.level != null && character.level > 1
+  )
+
+  // Handler to assign default stats and enter edit mode
+  const handleAssignStats = () => {
+    // Pre-populate with sensible defaults
+    setEditedCoreStats({
+      str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10,
+    })
+    setEditedDerivedStats({
+      hp: 10, max_hp: 10, ac: 10, speed: 30,
+    })
+    setEditedLevelExp({
+      level: 1, experience: 0,
+    })
+    setIsEditMode(true)
+  }
 
   // Tabs configuration
   const tabs: TabItem[] = [
@@ -288,67 +515,69 @@ export default function CharacterDetailPage() {
             <div className="h-full flex flex-col">
               {/* Name and Level */}
               <div className="mb-6">
-                <h2 className="text-3xl md:text-4xl font-display uppercase tracking-wider text-neutral-100 mb-2">
-                  {name}
-                </h2>
-                <p className="text-sm font-display uppercase tracking-widest text-soul-accent">
-                  {character.class ? `${character.class} • ` : ''}Level {level}
-                </p>
+                <NameEditor
+                  name={isEditMode ? editedName : name}
+                  isOwner={isOwner}
+                  isEditMode={isEditMode}
+                  onChange={setEditedName}
+                  className="mb-2"
+                />
+                <LevelExperienceEditor
+                  stats={isEditMode ? editedLevelExp : { level, experience: character.experience ?? null }}
+                  characterClass={character.class}
+                  isOwner={isOwner}
+                  isEditMode={isEditMode}
+                  onChange={setEditedLevelExp}
+                />
               </div>
 
-              {/* Quick Stats */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-                {character.hp !== undefined && (
-                  <Card className="bg-black/30">
-                    <CardContent className="p-3 text-center">
-                      <p className="text-[10px] font-display uppercase tracking-widest text-neutral-500 mb-1">HP</p>
-                      <p className="text-xl font-display text-soul-accent">
-                        {character.hp}{character.max_hp ? <span className="text-neutral-500 text-xs">/{character.max_hp}</span> : ''}
-                      </p>
-                    </CardContent>
-                  </Card>
-                )}
-                {character.ac !== undefined && (
-                  <Card className="bg-black/30">
-                    <CardContent className="p-3 text-center">
-                      <p className="text-[10px] font-display uppercase tracking-widest text-neutral-500 mb-1">AC</p>
-                      <p className="text-xl font-display text-neutral-200">{character.ac}</p>
-                    </CardContent>
-                  </Card>
-                )}
-                {character.speed !== undefined && (
-                  <Card className="bg-black/30">
-                    <CardContent className="p-3 text-center">
-                      <p className="text-[10px] font-display uppercase tracking-widest text-neutral-500 mb-1">Speed</p>
-                      <p className="text-xl font-display text-neutral-200">{character.speed}<span className="text-xs text-neutral-500"> ft</span></p>
-                    </CardContent>
-                  </Card>
-                )}
-                <Card className="bg-black/30">
-                  <CardContent className="p-3 text-center">
-                    <p className="text-[10px] font-display uppercase tracking-widest text-neutral-500 mb-1">Token</p>
-                    <p className="text-xl font-display text-neutral-200">#{tokenId}</p>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Character Attributes */}
-              {hasCharacterSheet && (
-                <div className="h-full">
-                  <p className="text-[10px] font-display uppercase tracking-widest text-neutral-500 mb-3">Attributes</p>
-                  <div className="grid grid-cols-3 gap-2">
-                    {attributes.map((attr) => (
-                      <div
-                        key={attr.label}
-                        className="bg-black/40 border border-neutral-800 p-3 text-center"
-                      >
-                        <p className="text-[10px] font-display uppercase tracking-widest text-neutral-600 mb-1">{attr.label}</p>
-                        <p className="text-xl font-display text-neutral-200 mb-2">{attr.value}</p>
-                        <ProgressBar value={attr.value} max={20} showValue={false} variant="souls" />
-                      </div>
-                    ))}
+              {/* Quick Stats - Derived Stats */}
+              <div className="mb-6">
+                <DerivedStatsEditor
+                  stats={isEditMode ? editedDerivedStats : {
+                    hp: character.hp ?? null,
+                    max_hp: character.max_hp ?? null,
+                    ac: character.ac ?? null,
+                    speed: character.speed ?? null,
+                  }}
+                  isOwner={isOwner}
+                  isEditMode={isEditMode}
+                  onChange={setEditedDerivedStats}
+                />
+                {/* Token ID display (always show, not editable) */}
+                {!isEditMode && (
+                  <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <Card className="bg-black/30">
+                      <CardContent className="p-3 text-center">
+                        <p className="text-[10px] font-display uppercase tracking-widest text-neutral-500 mb-1">Token</p>
+                        <p className="text-xl font-display text-neutral-200">#{tokenId}</p>
+                      </CardContent>
+                    </Card>
                   </div>
-                </div>
+                )}
+              </div>
+
+              {/* Character Attributes - Core Stats */}
+              {(hasCharacterSheet || (isOwner && isEditMode)) && (
+                <CoreStatsEditor
+                  stats={isEditMode ? editedCoreStats : {
+                    str: attrs.str,
+                    dex: attrs.dex,
+                    con: attrs.con,
+                    int: attrs.int,
+                    wis: attrs.wis,
+                    cha: attrs.cha,
+                  }}
+                  isOwner={isOwner}
+                  isEditMode={isEditMode}
+                  onChange={setEditedCoreStats}
+                  className="h-full"
+                />
+              )}
+
+              {/* Empty Stats Prompt - Show when owner has no stats and not in edit mode */}
+              {isOwner && !hasAnyStats && !isEditMode && (
+                <EmptyStatsPrompt onAssignStats={handleAssignStats} />
               )}
 
               {/* Owner Actions */}

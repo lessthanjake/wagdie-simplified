@@ -104,6 +104,17 @@ export interface Concord {
   created_at: string
 }
 
+// Editable fields for character updates
+export type EditableCharacterFields =
+  | 'name'
+  | 'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha'
+  | 'hp' | 'max_hp' | 'ac' | 'speed'
+  | 'level' | 'experience'
+  | 'background_story' | 'equipment'
+
+// Type for partial character updates
+export type CharacterUpdate = Partial<Pick<Character, EditableCharacterFields>>
+
 export type CharacterFilterTab = 'all' | 'owned' | 'infected' | 'cured' | 'staked'
 export type SortOrder = 'asc' | 'desc'
 
