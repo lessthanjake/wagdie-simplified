@@ -85,25 +85,25 @@ export const authApi = {
    * Get nonce for SIWE
    */
   getNonce: (address: string) =>
-    apiClient.post<{ nonce: string }>('/auth/nonce', { address }),
+    apiClient.post<{ nonce: string }>('/api/auth/nonce', { address }),
 
   /**
    * Verify SIWE signature
    */
   verify: (params: { address: string; signature: string; message: string }) =>
-    apiClient.post<{ success: boolean }>('/auth/verify', params),
+    apiClient.post<{ success: boolean }>('/api/auth/verify', params),
 
   /**
    * Get current session
    */
   getSession: () =>
-    apiClient.get<UserSession>('/auth/me'),
+    apiClient.get<UserSession>('/api/auth/me'),
 
   /**
    * Logout
    */
   logout: () =>
-    apiClient.post<{ success: boolean }>('/auth/logout'),
+    apiClient.post<{ success: boolean }>('/api/auth/logout'),
 }
 
 /**

@@ -5,9 +5,22 @@ export async function POST() {
   try {
     const cookieStore = await cookies()
 
-    // Clear session cookie
-    cookieStore.delete('siwe-session')
-    cookieStore.delete('siwe-nonce')
+    // Clear session cookies by setting them to expire immediately
+    // Must use set() with maxAge: 0 to properly clear cookies with path
+    cookieStore.set('siwe-session', '', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 0,
+      path: '/',
+    })
+    cookieStore.set('siwe-nonce', '', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 0,
+      path: '/',
+    })
 
     return NextResponse.json({ success: true })
   } catch (error) {
