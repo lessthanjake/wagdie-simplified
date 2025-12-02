@@ -19,6 +19,8 @@ import { StakingStatusCard } from '@/components/StakingStatusCard'
 import { SearingModal } from '@/components/modals/SearingModal'
 import { InfectionModal } from '@/components/modals/InfectionModal'
 import { CureModal } from '@/components/modals/CureModal'
+import { ChatSidebar } from '@/components/chat'
+import { AIPersonaTab } from '@/components/characters/ai-editor'
 import {
   Card,
   CardTitle,
@@ -29,7 +31,6 @@ import {
   Separator,
   Badge,
   Tabs,
-  ProgressBar,
 } from '@/components-new'
 import type { TabItem } from '@/components-new'
 import type { Character, Equipment } from '@/types/character'
@@ -56,6 +57,12 @@ const SkullIcon = () => (
 const HeartIcon = () => (
   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+  </svg>
+)
+
+const ChatIcon = () => (
+  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
   </svg>
 )
 
@@ -92,6 +99,7 @@ export default function CharacterDetailPage() {
   const [isSearingModalOpen, setIsSearingModalOpen] = useState(false)
   const [isInfectionModalOpen, setIsInfectionModalOpen] = useState(false)
   const [isCureModalOpen, setIsCureModalOpen] = useState(false)
+  const [isChatOpen, setIsChatOpen] = useState(false)
   const [activeTab, setActiveTab] = useState('story')
   const [useLocalImage, setUseLocalImage] = useState(true)
 
@@ -374,15 +382,6 @@ export default function CharacterDetailPage() {
     }
   }
 
-  const attributes = [
-    { label: 'STR', value: attrs.str },
-    { label: 'DEX', value: attrs.dex },
-    { label: 'CON', value: attrs.con },
-    { label: 'INT', value: attrs.int },
-    { label: 'WIS', value: attrs.wis },
-    { label: 'CHA', value: attrs.cha },
-  ]
-
   const hasCharacterSheet = attrs.str > 0 || attrs.dex > 0 || attrs.con > 0
 
   // Check if character has any stats (for empty stats prompt)
@@ -415,6 +414,7 @@ export default function CharacterDetailPage() {
   // Tabs configuration
   const tabs: TabItem[] = [
     { id: 'story', label: 'Story' },
+    { id: 'ai-persona', label: 'AI Persona' },
     { id: 'equipment', label: 'Equipment' },
     { id: 'wallet', label: 'Wallet' },
   ]
@@ -477,6 +477,10 @@ export default function CharacterDetailPage() {
                   )}
                 </>
               )}
+              <Button variant="secondary" onClick={() => setIsChatOpen(true)} className="gap-2">
+                <ChatIcon />
+                <span className="hidden sm:inline">Chat</span>
+              </Button>
               <Button variant="secondary" onClick={() => router.push(`/characters/${tokenId}/animated`)}>
                 Animated
               </Button>
@@ -636,6 +640,15 @@ export default function CharacterDetailPage() {
             />
           )}
 
+          {activeTab === 'ai-persona' && (
+            <AIPersonaTab
+              tokenId={String(tokenId)}
+              isOwner={isOwner}
+              characterName={name}
+              characterBackstory={editedStory}
+            />
+          )}
+
           {activeTab === 'equipment' && (
             <SheetEquipment
               equipment={(character.equipment || character.metadata?.equipment) as Equipment | null}
@@ -688,6 +701,14 @@ export default function CharacterDetailPage() {
           />
         </>
       )}
+
+      {/* Chat Sidebar */}
+      <ChatSidebar
+        tokenId={String(tokenId)}
+        characterName={name}
+        isOpen={isChatOpen}
+        onClose={() => setIsChatOpen(false)}
+      />
     </div>
   )
 }
