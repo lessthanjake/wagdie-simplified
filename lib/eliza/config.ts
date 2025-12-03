@@ -7,7 +7,7 @@ export const elizaConfig = {
   /**
    * Base URL for Eliza API (client-side accessible)
    */
-  baseUrl: process.env.NEXT_PUBLIC_ELIZA_API_URL || 'http://localhost:3001',
+  baseUrl: process.env.NEXT_PUBLIC_ELIZA_API_URL || 'https://eliza.runiverse.ai',
 
   /**
    * API key for server-side authentication

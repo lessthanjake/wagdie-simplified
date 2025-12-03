@@ -35,6 +35,7 @@ import {
 } from '@/components-new'
 import type { TabItem } from '@/components-new'
 import type { Character } from '@/types/character'
+import { isAdmin } from '@/lib/auth/admin'
 
 // Icons
 const BackIcon = () => (
@@ -173,8 +174,12 @@ export default function CharacterDetailPage() {
     return false
   }, [character, isEditMode, editedName, editedStory, editedCoreStats, editedDerivedStats, editedLevelExp])
 
+  // Check if user is admin (can edit any character)
+  const userIsAdmin = isAdmin(address)
+
+  // User can edit if they own the character OR if they're an admin
   const isOwner = character && address
-    ? character.owner_address?.toLowerCase() === address.toLowerCase()
+    ? (character.owner_address?.toLowerCase() === address.toLowerCase()) || userIsAdmin
     : false
 
   // Reset all edited values to original character data

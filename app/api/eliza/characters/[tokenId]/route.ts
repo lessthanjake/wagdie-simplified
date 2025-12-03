@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth/session'
 import { getElizaClient } from '@/lib/eliza/client'
+import { isAdmin } from '@/lib/auth/admin'
 import { createClient } from '@supabase/supabase-js'
 import type { AICharacter, UpdateAICharacterInput, ErrorResponse } from '@/types/eliza'
 
@@ -108,23 +109,33 @@ export async function PUT(
       )
     }
 
+    // Check if user is admin
+    const userIsAdmin = isAdmin(session.address)
+    console.log('[Eliza PUT] User is admin:', userIsAdmin)
+    console.log('[Eliza PUT] Session address:', session.address)
+
     // Check character ownership in WAGDIE database
+    console.log('[Eliza PUT] Fetching character from Supabase, tokenId:', parsedTokenId)
     const { data: wagdieCharacter, error: dbError } = await supabase
       .from('characters')
       .select('token_id, name, background_story, owner_address')
       .eq('token_id', parsedTokenId)
       .single()
 
+    console.log('[Eliza PUT] Supabase result:', { wagdieCharacter, dbError })
+
     if (dbError || !wagdieCharacter) {
+      console.log('[Eliza PUT] Character not found in WAGDIE database')
       return NextResponse.json(
         { error: 'NOT_FOUND', message: 'WAGDIE character not found' },
         { status: 404 }
       )
     }
 
-    // Verify ownership
+    // Verify ownership (admins bypass this check)
     const isOwner = wagdieCharacter.owner_address?.toLowerCase() === session.address.toLowerCase()
-    if (!isOwner) {
+    if (!userIsAdmin && !isOwner) {
+      console.log('[Eliza PUT] Ownership check failed - not owner and not admin')
       return NextResponse.json(
         { error: 'FORBIDDEN', message: 'Not character owner' },
         { status: 403 }

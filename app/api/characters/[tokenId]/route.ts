@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCharacter, updateCharacter } from '@/lib/services/character-service'
 import { getSession } from '@/lib/auth/session'
+import { isAdmin } from '@/lib/auth/admin'
 import {
   validateName,
   validateCoreStat,
@@ -101,8 +102,12 @@ export async function PATCH(
       )
     }
 
-    // Verify ownership (case-insensitive comparison)
-    if (character.owner_address?.toLowerCase() !== session.address.toLowerCase()) {
+    // Check if user is admin (can edit any character)
+    const userIsAdmin = isAdmin(session.address)
+    console.log('[PATCH] User is admin:', userIsAdmin)
+
+    // Verify ownership (case-insensitive comparison) - admins bypass this check
+    if (!userIsAdmin && character.owner_address?.toLowerCase() !== session.address.toLowerCase()) {
       console.log('[PATCH] Ownership check failed')
       console.log('[PATCH] Character owner:', character.owner_address?.toLowerCase())
       console.log('[PATCH] Session user:', session.address.toLowerCase())
