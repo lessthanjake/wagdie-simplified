@@ -33,6 +33,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+tsc_output*.txt
+
+# large data files
+wagdie.json
 
 # migration scripts
 scripts/migration/data/
