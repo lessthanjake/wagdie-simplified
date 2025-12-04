@@ -16,19 +16,56 @@
 }
 
 @layer base {
-  /* Wagdie Fraktur titles are always  */
-  .font-wagdie,
-  .font-display {
-    @apply capitalize;
-  }
-
-  /* Eskapade Fraktur for paragraphs */
-  p {
+  /* Base body text uses Eskapade */
+  body {
     font-family: 'Eskapade Fraktur', serif;
   }
 }
 
 @layer components {
+  /* Typography utility classes for consistent styling */
+
+  /* Headings - use font-display (Wagdie Fraktur) */
+  .heading-1 {
+    @apply text-h1 font-display text-neutral-200;
+  }
+
+  .heading-2 {
+    @apply text-h2 font-display text-neutral-200;
+  }
+
+  .heading-3 {
+    @apply text-h3 font-display text-neutral-200;
+  }
+
+  .heading-4 {
+    @apply text-h4 font-display text-neutral-200;
+  }
+
+  /* Body text - uses Eskapade */
+  .body-text {
+    @apply text-body font-eskapade text-neutral-400;
+  }
+
+  .body-text-sm {
+    @apply text-body-sm font-eskapade text-neutral-400;
+  }
+
+  /* Labels and captions */
+  .form-label {
+    @apply text-caption font-display tracking-widest uppercase text-neutral-500;
+  }
+
+  .caption-text {
+    @apply text-caption font-eskapade text-neutral-500;
+  }
+
+  /* Form inputs - consistent sizing */
+  .form-input {
+    @apply text-body font-eskapade bg-transparent border-b border-neutral-800
+           focus:border-soul-accent focus:outline-none transition-colors;
+  }
+
   /* Button styles */
   .btn-primary {
     @apply px-4 py-2 bg-blood hover:bg-ember text-bone font-semibold rounded-md transition-colors duration-200;
@@ -51,7 +88,6 @@
     content: '';
     @apply absolute bottom-0 left-0 right-0 h-0.5 bg-gold;
   }
-
 }
 
 @layer utilities {

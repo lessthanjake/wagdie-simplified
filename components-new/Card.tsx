@@ -11,12 +11,12 @@ export const CardHeader = React.memo<React.HTMLAttributes<HTMLDivElement>>(({ cl
 CardHeader.displayName = 'CardHeader';
 
 export const CardTitle = React.memo<React.HTMLAttributes<HTMLHeadingElement>>(({ className = '', ...props }) => (
-  <h3 className={`text-xl font-display text-neutral-200 ${className}`} {...props} />
+  <h3 className={`text-h4 font-display text-neutral-200 ${className}`} {...props} />
 ));
 CardTitle.displayName = 'CardTitle';
 
 export const CardDescription = React.memo<React.HTMLAttributes<HTMLParagraphElement>>(({ className = '', ...props }) => (
-  <p className={`text-sm text-neutral-500 font-eskapade ${className}`} {...props} />
+  <p className={`text-body-sm text-neutral-500 font-eskapade ${className}`} {...props} />
 ));
 CardDescription.displayName = 'CardDescription';
 

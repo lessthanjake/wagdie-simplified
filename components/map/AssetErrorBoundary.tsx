@@ -137,7 +137,7 @@ export class AssetErrorBoundary extends Component<AssetErrorBoundaryProps, Asset
           </div>
 
           {/* Error Message */}
-          <h3 className="text-bone text-xl mb-2 font-wagdie">Asset Loading Error</h3>
+          <h3 className="text-bone text-xl mb-2 font-display">Asset Loading Error</h3>
 
           <div className="text-mist mb-6 text-sm">
             {error?.message || 'An unexpected error occurred while loading map assets.'}
@@ -157,7 +157,7 @@ export class AssetErrorBoundary extends Component<AssetErrorBoundaryProps, Asset
               <button
                 onClick={this.handleRetry}
                 disabled={this.state.retryDelay > 1000 && this.state.retryDelay < 30000}
-                className="relative px-6 py-3 bg-gold text-abyss font-wagdie font-bold rounded-lg hover:bg-amber-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="relative px-6 py-3 bg-gold text-abyss font-display font-bold rounded-lg hover:bg-amber-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {this.state.retryDelay > 1000 ? (
                   <>
@@ -173,7 +173,7 @@ export class AssetErrorBoundary extends Component<AssetErrorBoundaryProps, Asset
             {canManualRetry && (
               <button
                 onClick={this.handleManualRetry}
-                className="px-6 py-3 bg-ember text-bone font-wagdie font-bold rounded-lg hover:bg-orange-600 transition-all"
+                className="px-6 py-3 bg-ember text-bone font-display font-bold rounded-lg hover:bg-orange-600 transition-all"
               >
                 Manual Retry
               </button>
@@ -181,7 +181,7 @@ export class AssetErrorBoundary extends Component<AssetErrorBoundaryProps, Asset
 
             <button
               onClick={this.handleRefresh}
-              className="px-6 py-3 border border-gold/50 text-bone font-wagdie font-bold rounded-lg hover:bg-abyss transition-all"
+              className="px-6 py-3 border border-gold/50 text-bone font-display font-bold rounded-lg hover:bg-abyss transition-all"
             >
               Refresh Page
             </button>

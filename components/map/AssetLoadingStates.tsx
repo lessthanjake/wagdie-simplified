@@ -212,7 +212,7 @@ export const AssetLoadingIndicator: React.FC<AssetLoadingIndicatorProps> = ({
     <div className={`p-4 bg-abyss/90 border border-gold/20 rounded-lg backdrop-blur-sm ${className}`}>
       {/* Header */}
       <div className="flex justify-between items-center mb-3">
-        <h3 className="text-bone font-wagdie">Map Assets</h3>
+        <h3 className="text-bone font-display">Map Assets</h3>
         <div className="text-gold text-sm">
           {loadedAssets}/{totalAssets}
         </div>
@@ -298,7 +298,7 @@ export const AssetLoadingIndicator: React.FC<AssetLoadingIndicatorProps> = ({
                 .filter(([_, value]) => getStatus(value) === 'failed')
                 .forEach(([assetId]) => onRetryAsset(assetId));
             }}
-            className="px-4 py-2 bg-gold text-abyss font-wagdie font-bold rounded-lg hover:bg-amber-600 transition-colors"
+            className="px-4 py-2 bg-gold text-abyss font-display font-bold rounded-lg hover:bg-amber-600 transition-colors"
           >
             Retry All Failed
           </button>

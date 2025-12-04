@@ -107,7 +107,7 @@ export function LocationForm({
 
   return (
     <form onSubmit={handleSubmit} className="p-4 bg-soul-shadow border-l border-soul-accent/30">
-      <h2 className="font-wagdie text-xl text-soul-accent mb-4">
+      <h2 className="font-display text-xl text-soul-accent mb-4">
         {mode === 'create' ? 'New Location' : 'Edit Location'}
       </h2>
 
@@ -131,7 +131,7 @@ export function LocationForm({
           onChange={(e) => setName(e.target.value)}
           disabled={isSubmitting}
           className={`
-            w-full px-3 py-2 bg-abyss border rounded font-wagdie
+            w-full px-3 py-2 bg-abyss border rounded font-display
             text-soul-bone placeholder-soul-mist/50
             focus:outline-none focus:border-soul-accent
             disabled:opacity-50 disabled:cursor-not-allowed
@@ -186,7 +186,7 @@ export function LocationForm({
           type="submit"
           disabled={isSubmitting}
           className="
-            flex-1 px-4 py-2 bg-soul-accent text-abyss font-wagdie rounded
+            flex-1 px-4 py-2 bg-soul-accent text-abyss font-display rounded
             hover:bg-soul-accent/80 transition-colors
             disabled:opacity-50 disabled:cursor-not-allowed
           "
@@ -198,7 +198,7 @@ export function LocationForm({
           onClick={onCancel}
           disabled={isSubmitting}
           className="
-            px-4 py-2 bg-abyss text-soul-bone font-wagdie rounded
+            px-4 py-2 bg-abyss text-soul-bone font-display rounded
             border border-soul-accent/60 hover:bg-soul-accent/20 transition-colors
             disabled:opacity-50 disabled:cursor-not-allowed
           "
@@ -214,7 +214,7 @@ export function LocationForm({
           onClick={onDelete}
           disabled={isSubmitting}
           className="
-            w-full mt-3 px-4 py-2 bg-transparent text-soul-ember font-wagdie rounded
+            w-full mt-3 px-4 py-2 bg-transparent text-soul-ember font-display rounded
             border border-soul-ember/60 hover:bg-soul-ember/20 transition-colors
             disabled:opacity-50 disabled:cursor-not-allowed
           "

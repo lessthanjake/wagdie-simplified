@@ -29,11 +29,11 @@ export function LoadingState({
         </div>
 
         {/* Loading Message */}
-        <div className="font-wagdie text-gold text-2xl mb-2 tracking-wide">{message}</div>
+        <div className="font-display text-gold text-2xl mb-2 tracking-wide">{message}</div>
 
         {/* Current Stage */}
         {stage && (
-          <div className="font-wagdie text-bone text-lg mb-4 tracking-wide">{stage}</div>
+          <div className="font-display text-bone text-lg mb-4 tracking-wide">{stage}</div>
         )}
 
         {/* Stage List */}
@@ -42,7 +42,7 @@ export function LoadingState({
             {stageList.map((stageName, index) => (
               <div
                 key={index}
-                className={`flex items-center gap-2 justify-start text-left font-wagdie text-sm transition-all duration-300 ${
+                className={`flex items-center gap-2 justify-start text-left font-display text-sm transition-all duration-300 ${
                   index === currentStage
                     ? 'text-gold'
                     : index < currentStage
@@ -80,7 +80,7 @@ export function LoadingState({
 
         {/* Progress Percentage */}
         {(showProgress || progress > 0) && (
-          <div className="font-wagdie text-mist text-sm mb-3">{Math.round(progress)}% complete</div>
+          <div className="font-display text-mist text-sm mb-3">{Math.round(progress)}% complete</div>
         )}
 
         {/* Loading Dots */}
@@ -137,7 +137,7 @@ export function MapLoadingSkeleton() {
       <div className="w-full h-full flex items-center justify-center">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-gold border-r-2 border-l-2 mb-4"></div>
-          <div className="font-wagdie text-gold text-xl">Loading map...</div>
+          <div className="font-display text-gold text-xl">Loading map...</div>
         </div>
       </div>
     </div>

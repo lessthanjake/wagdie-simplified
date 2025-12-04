@@ -22,10 +22,10 @@ const CharacterListPanelComponent = function CharacterListPanelComponent({
     return (
       <div className="bg-shadow border border-gold rounded-lg p-4 max-w-sm">
         <div className="text-center">
-          <h3 className="font-wagdie text-gold text-lg font-bold mb-2">
+          <h3 className="font-display text-gold text-lg font-bold mb-2">
             Your Characters
           </h3>
-          <p className="font-wagdie text-mist text-sm mb-3">
+          <p className="font-display text-mist text-sm mb-3">
             Connect your wallet to view your characters
           </p>
           <div className="w-16 h-16 mx-auto mb-3 bg-midnight rounded-full flex items-center justify-center">
@@ -57,10 +57,10 @@ const CharacterListPanelComponent = function CharacterListPanelComponent({
     return (
       <div className="bg-shadow border border-gold rounded-lg p-4 max-w-sm">
         <div className="text-center">
-          <h3 className="font-wagdie text-gold text-lg font-bold mb-2">
+          <h3 className="font-display text-gold text-lg font-bold mb-2">
             Your Characters
           </h3>
-          <p className="font-wagdie text-mist text-sm mb-3">
+          <p className="font-display text-mist text-sm mb-3">
             No characters found for this wallet
           </p>
           <div className="w-16 h-16 mx-auto mb-3 bg-midnight rounded-full flex items-center justify-center">
@@ -78,7 +78,7 @@ const CharacterListPanelComponent = function CharacterListPanelComponent({
               />
             </svg>
           </div>
-          <p className="font-wagdie text-ash text-xs">
+          <p className="font-display text-ash text-xs">
             Browse OpenSea to acquire WAGDIE characters
           </p>
         </div>
@@ -106,10 +106,10 @@ const CharacterListPanelComponent = function CharacterListPanelComponent({
     >
       {/* Header */}
       <div className="flex justify-between items-center mb-3 sm:mb-4">
-        <h3 className="font-wagdie text-gold text-base sm:text-lg font-bold tracking-wide">
+        <h3 className="font-display text-gold text-base sm:text-lg font-bold tracking-wide">
           Your Characters
         </h3>
-        <div className="text-xs font-wagdie text-mist bg-midnight px-2 py-1 rounded" aria-label={`${userCharacters.length} characters`}>
+        <div className="text-xs font-display text-mist bg-midnight px-2 py-1 rounded" aria-label={`${userCharacters.length} characters`}>
           {userCharacters.length}
         </div>
       </div>
@@ -135,10 +135,10 @@ const CharacterListPanelComponent = function CharacterListPanelComponent({
           >
             {/* Character Header */}
             <div className="flex justify-between items-start mb-1 sm:mb-2">
-              <div className="font-wagdie text-bone font-bold text-sm sm:text-base">
+              <div className="font-display text-bone font-bold text-sm sm:text-base">
                 Character #{character.character_token_id}
               </div>
-              <div className={`text-xs font-wagdie font-semibold ${getStatusColor(character.status)}`} aria-label={`Status: ${character.status}`}>
+              <div className={`text-xs font-display font-semibold ${getStatusColor(character.status)}`} aria-label={`Status: ${character.status}`}>
                 {character.status}
               </div>
             </div>
@@ -165,7 +165,7 @@ const CharacterListPanelComponent = function CharacterListPanelComponent({
                   d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
                 />
               </svg>
-              <span className="font-wagdie text-xs sm:text-sm text-mist truncate">
+              <span className="font-display text-xs sm:text-sm text-mist truncate">
                 {character.location?.name || 'Unknown Location'}
               </span>
             </div>
@@ -194,7 +194,7 @@ const CharacterListPanelComponent = function CharacterListPanelComponent({
                   d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
                 />
               </svg>
-              <span className="font-wagdie text-xs text-ash truncate">
+              <span className="font-display text-xs text-ash truncate">
                 {character.wallet_address.slice(0, 6)}...
                 {character.wallet_address.slice(-4)}
               </span>
@@ -203,7 +203,7 @@ const CharacterListPanelComponent = function CharacterListPanelComponent({
             {/* Focus Indicator */}
             {selectedCharacter === character.character_token_id && (
               <div className="mt-2 text-center">
-                <div className="inline-block px-2 py-1 bg-gold/20 border border-gold rounded text-xs font-wagdie text-gold">
+                <div className="inline-block px-2 py-1 bg-gold/20 border border-gold rounded text-xs font-display text-gold">
                   Clicked - Center on Map
                 </div>
               </div>
@@ -214,7 +214,7 @@ const CharacterListPanelComponent = function CharacterListPanelComponent({
 
       {/* Footer */}
       <div className="mt-3 sm:mt-4 pt-2 sm:pt-3 border-t border-midnight">
-        <p className="font-wagdie text-xs text-ash text-center">
+        <p className="font-display text-xs text-ash text-center">
           Tap a character to focus the map on their location
         </p>
       </div>

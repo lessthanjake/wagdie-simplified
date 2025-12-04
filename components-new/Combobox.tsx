@@ -38,14 +38,14 @@ export const Combobox: React.FC<ComboboxProps> = ({ options, placeholder = "Sele
   return (
     <div className="flex flex-col gap-2 w-full" ref={containerRef}>
         {label && (
-        <label className="text-xs  tracking-widest text-neutral-500 font-display">
+        <label className="text-caption tracking-widest uppercase text-neutral-500 font-display">
           {label}
         </label>
       )}
       <div className="relative">
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="w-full justify-between flex items-center bg-black/20 border border-neutral-800 px-3 py-2 text-sm font-eskapade text-neutral-300 hover:bg-neutral-900 transition-colors"
+          className="w-full justify-between flex items-center bg-black/20 border border-neutral-800 px-3 py-2 text-body font-eskapade text-neutral-300 hover:bg-neutral-900 transition-colors"
         >
           {selectedLabel || placeholder}
           <svg className="ml-2 h-4 w-4 opacity-50" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
@@ -53,15 +53,15 @@ export const Combobox: React.FC<ComboboxProps> = ({ options, placeholder = "Sele
 
         {isOpen && (
           <div className="absolute top-full left-0 z-50 w-full mt-1 bg-soul-950 border border-neutral-800 shadow-xl p-1 animate-fade-in">
-             <input 
-                className="w-full bg-neutral-900 border border-neutral-800 p-2 text-xs text-neutral-200 mb-1 outline-none focus:border-soul-accent"
+             <input
+                className="w-full bg-neutral-900 border border-neutral-800 p-2 text-body-sm text-neutral-200 mb-1 outline-none focus:border-soul-accent"
                 placeholder="Search..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
              />
              <div className="max-h-60 overflow-y-auto">
                 {filteredOptions.length === 0 ? (
-                    <div className="p-2 text-xs text-neutral-600 text-center">No results.</div>
+                    <div className="p-2 text-body-sm text-neutral-600 text-center">No results.</div>
                 ) : (
                     filteredOptions.map((opt) => (
                         <div
@@ -72,7 +72,7 @@ export const Combobox: React.FC<ComboboxProps> = ({ options, placeholder = "Sele
                                 setSearch("");
                             }}
                             className={`
-                                cursor-pointer px-2 py-1.5 text-sm flex items-center
+                                cursor-pointer px-2 py-1.5 text-body-sm font-eskapade flex items-center
                                 ${value === opt.value ? 'text-soul-accent bg-neutral-900' : 'text-neutral-400 hover:bg-neutral-900 hover:text-neutral-200'}
                             `}
                         >

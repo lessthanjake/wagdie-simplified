@@ -28,15 +28,15 @@ export function NoCharactersState({ onConnectWallet }: NoCharactersStateProps) {
         </div>
 
         {/* Title */}
-        <h2 className="font-wagdie text-gold text-3xl font-bold mb-3 tracking-wide">
+        <h2 className="font-display text-gold text-3xl font-bold mb-3 tracking-wide">
           No Characters Found
         </h2>
 
         {/* Description */}
-        <p className="font-wagdie text-bone text-base mb-2">
+        <p className="font-display text-bone text-base mb-2">
           You don&apos;t have any WAGDIE characters yet.
         </p>
-        <p className="font-wagdie text-mist text-sm mb-6">
+        <p className="font-display text-mist text-sm mb-6">
           Acquire characters to see them on the map and participate in the WAGDIE world.
         </p>
 
@@ -44,14 +44,14 @@ export function NoCharactersState({ onConnectWallet }: NoCharactersStateProps) {
         <div className="flex flex-col gap-3">
           <button
             onClick={() => window.open('https://opensea.io/collection/wagdie', '_blank')}
-            className="px-6 py-3 bg-gold text-abyss font-bold rounded hover:bg-ember transition-colors font-wagdie tracking-wide"
+            className="px-6 py-3 bg-gold text-abyss font-bold rounded hover:bg-ember transition-colors font-display tracking-wide"
           >
             Browse Characters on OpenSea
           </button>
           {onConnectWallet && (
             <button
               onClick={onConnectWallet}
-              className="px-6 py-3 bg-midnight text-bone border border-gold rounded hover:bg-shadow transition-colors font-wagdie tracking-wide"
+              className="px-6 py-3 bg-midnight text-bone border border-gold rounded hover:bg-shadow transition-colors font-display tracking-wide"
             >
               Connect Wallet First
             </button>
@@ -59,7 +59,7 @@ export function NoCharactersState({ onConnectWallet }: NoCharactersStateProps) {
         </div>
 
         {/* Helper Text */}
-        <p className="font-wagdie text-ash text-xs mt-4">
+        <p className="font-display text-ash text-xs mt-4">
           Characters you acquire will automatically appear on the map at their staked locations.
         </p>
       </div>
