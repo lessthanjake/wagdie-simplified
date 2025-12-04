@@ -92,19 +92,19 @@ export class ErrorBoundary extends Component<Props, State> {
             </div>
 
             {/* Error Title */}
-            <h2 className="font-wagdie text-gold text-2xl font-bold text-center mb-3 tracking-wide">
+            <h2 className="font-display text-gold text-2xl font-bold text-center mb-3 tracking-wide">
               Map Loading Error
             </h2>
 
             {/* Error Description */}
-            <p className="font-wagdie text-bone text-base mb-4 text-center">
+            <p className="font-display text-bone text-base mb-4 text-center">
               Something went wrong while loading the WAGDIE world map.
             </p>
 
             {/* Error Details (collapsible) */}
             {this.state.error && (
               <details className="mb-4 bg-midnight rounded p-3 border border-gold/30">
-                <summary className="font-wagdie text-mist text-sm cursor-pointer hover:text-bone transition-colors">
+                <summary className="font-display text-mist text-sm cursor-pointer hover:text-bone transition-colors">
                   Error Details (click to expand)
                 </summary>
                 <div className="mt-2 font-mono text-xs text-ash overflow-auto max-h-40">
@@ -128,27 +128,27 @@ export class ErrorBoundary extends Component<Props, State> {
             <div className="flex flex-col sm:flex-row gap-3">
               <button
                 onClick={this.handleRetry}
-                className="flex-1 px-4 py-3 bg-gold text-abyss font-wagdie font-bold rounded-lg hover:bg-ember transition-all tracking-wide border-2 border-gold"
+                className="flex-1 px-4 py-3 bg-gold text-abyss font-display font-bold rounded-lg hover:bg-ember transition-all tracking-wide border-2 border-gold"
               >
                 Try Again
               </button>
               <button
                 onClick={this.handleReload}
-                className="flex-1 px-4 py-3 bg-midnight text-bone font-wagdie font-bold rounded-lg hover:bg-shadow transition-all tracking-wide border-2 border-midnight"
+                className="flex-1 px-4 py-3 bg-midnight text-bone font-display font-bold rounded-lg hover:bg-shadow transition-all tracking-wide border-2 border-midnight"
               >
                 Reload Page
               </button>
             </div>
 
             {/* Help Text */}
-            <p className="font-wagdie text-ash text-xs mt-4 text-center">
+            <p className="font-display text-ash text-xs mt-4 text-center">
               If this problem persists, try refreshing the page or contact support.
             </p>
 
             {/* Debug Info */}
             {process.env.NODE_ENV === 'development' && this.state.errorInfo && (
               <details className="mt-4 bg-abyss rounded p-3 border border-gold/30">
-                <summary className="font-wagdie text-mist text-xs cursor-pointer hover:text-bone transition-colors">
+                <summary className="font-display text-mist text-xs cursor-pointer hover:text-bone transition-colors">
                   Component Stack (Development Only)
                 </summary>
                 <pre className="mt-2 font-mono text-xs text-ash overflow-auto max-h-40 whitespace-pre-wrap">

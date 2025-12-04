@@ -54,12 +54,12 @@ function FeatureCard({ title, description, imageSrc, href, isExternal }: Feature
           )}
         </div>
         <CardHeader className="relative z-10 -mt-8 pt-0">
-          <CardTitle className="text-xl group-hover:text-soul-accent transition-colors duration-300 drop-shadow-md">
+          <CardTitle className="text-h4 group-hover:text-soul-accent transition-colors duration-300 drop-shadow-md">
             {title}
           </CardTitle>
         </CardHeader>
         <CardContent className="flex-1">
-          <CardDescription className="text-neutral-500 leading-relaxed text-base">
+          <CardDescription className="text-neutral-500 leading-relaxed text-body">
             {description}
           </CardDescription>
         </CardContent>
@@ -86,11 +86,11 @@ function Section({ title, subtitle, children }: SectionProps) {
                 <div className="w-2 h-2 rotate-45 border border-soul-accent" />
                 <Separator className="flex-1" />
             </div>
-            <h2 className="text-3xl md:text-4xl font-display text-neutral-200">
+            <h2 className="text-h2 font-display text-neutral-200">
                 {title}
             </h2>
             {subtitle && (
-                <p className="text-soul-accent/60 italic text-lg max-w-2xl">
+                <p className="text-soul-accent/60 italic text-body max-w-2xl font-eskapade">
                     &ldquo;{subtitle}&rdquo;
                 </p>
             )}
@@ -118,11 +118,11 @@ export default function HomePage() {
                  </svg>
             </div>
 
-            <h1 className="text-4xl md:text-6xl font-display ext-neutral-100 text-center mb-6 drop-shadow-2xl leading-tight">
-            We Are All <br/> <span className="text-soul-accent text-7xl md:text-8xl">Going to Die</span>
+            <h1 className="text-h1 md:text-[3.5rem] font-display text-neutral-100 text-center mb-6 drop-shadow-2xl leading-tight">
+            We Are All <br/> <span className="text-soul-accent text-[4rem] md:text-[5rem]">Going to Die</span>
             </h1>
-            
-            <p className="text-lg md:text-2xl text-neutral-500 text-center max-w-2xl tracking-wide leading-relaxed mb-12">
+
+            <p className="text-body md:text-h4 text-neutral-500 text-center max-w-2xl tracking-wide leading-relaxed mb-12 font-eskapade">
             A community-driven dark fantasy project where your choices shape the narrative of a dying world.
             </p>
 
@@ -134,7 +134,7 @@ export default function HomePage() {
         
         {/* Scroll Indicator */}
         <div className="absolute bottom-12 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 opacity-50 animate-bounce">
-            <span className="text-[10px] font-display text-neutral-500">Descend</span>
+            <span className="text-tiny font-display tracking-widest uppercase text-neutral-500">Descend</span>
             <div className="w-px h-12 bg-gradient-to-b from-soul-accent to-transparent"></div>
         </div>
       </section>
@@ -238,19 +238,19 @@ export default function HomePage() {
         {/* CTA Footer */}
         <section className="py-16 text-center relative overflow-hidden">
           <div className="absolute inset-0 bg-soul-accent/5 blur-3xl rounded-full scale-150 opacity-20" />
-          
+
           <div className="relative z-10 space-y-8">
-            <h2 className="text-4xl md:text-5xl font-display text-neutral-200">
+            <h2 className="text-h2 md:text-h1 font-display text-neutral-200">
                 Ready to Enter the Abyss?
             </h2>
-            <p className="text-neutral-500 max-w-xl mx-auto text-lg">
+            <p className="text-neutral-500 max-w-xl mx-auto text-body font-eskapade">
                 Join thousands of travelers exploring the dark world. The flame awaits your kindling.
             </p>
             <div className="flex flex-col sm:flex-row gap-6 justify-center items-center">
-                <Button variant="primary" className="min-w-[200px] h-14 text-lg">
+                <Button variant="primary" className="min-w-[200px] h-14 text-body">
                 Join Discord
                 </Button>
-                <Button variant="secondary" className="min-w-[200px] h-14 text-lg">
+                <Button variant="secondary" className="min-w-[200px] h-14 text-body">
                 Explore Characters
                 </Button>
             </div>

@@ -21,7 +21,7 @@ export function AdminGate({ children, fallback }: AdminGateProps) {
       <div className="flex min-h-screen items-center justify-center bg-abyss">
         <div className="text-center">
           <div className="mb-4 h-12 w-12 animate-spin rounded-full border-4 border-soul-accent border-t-transparent mx-auto" />
-          <p className="font-wagdie text-soul-mist">Verifying access...</p>
+          <p className="font-display text-soul-mist">Verifying access...</p>
         </div>
       </div>
     )
@@ -32,7 +32,7 @@ export function AdminGate({ children, fallback }: AdminGateProps) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-abyss">
         <div className="max-w-md text-center p-8">
-          <h1 className="font-wagdie text-3xl text-soul-accent mb-4">
+          <h1 className="font-display text-3xl text-soul-accent mb-4">
             Map Editor
           </h1>
           <p className="text-soul-mist mb-6">
@@ -40,7 +40,7 @@ export function AdminGate({ children, fallback }: AdminGateProps) {
           </p>
           <button
             onClick={connect}
-            className="px-6 py-3 bg-soul-accent text-abyss font-wagdie rounded hover:bg-soul-accent/80 transition-colors"
+            className="px-6 py-3 bg-soul-accent text-abyss font-display rounded hover:bg-soul-accent/80 transition-colors"
           >
             Connect Wallet
           </button>
@@ -58,7 +58,7 @@ export function AdminGate({ children, fallback }: AdminGateProps) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-abyss">
         <div className="max-w-md text-center p-8">
-          <h1 className="font-wagdie text-3xl text-soul-ember mb-4">
+          <h1 className="font-display text-3xl text-soul-ember mb-4">
             Access Denied
           </h1>
           <p className="text-soul-mist mb-4">
