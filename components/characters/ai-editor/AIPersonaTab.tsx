@@ -294,7 +294,7 @@ function AIPersonaTabComponent({
           {/* Unsaved changes warning */}
           {editor.hasUnsavedChanges && isOwner && (
             <div className="p-3 bg-amber-900/20 border border-amber-800/50 rounded-lg">
-              <p className="text-sm text-amber-400">
+              <p className="text-md text-amber-400">
                 You have unsaved changes. They&apos;re saved locally as a draft.
               </p>
             </div>

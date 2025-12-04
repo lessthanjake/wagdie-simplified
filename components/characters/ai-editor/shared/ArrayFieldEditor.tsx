@@ -128,10 +128,10 @@ function ArrayFieldEditorComponent({
     <div className="space-y-2">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <label className="text-xs font-display tracking-widest text-neutral-400 uppercase">
+        <label className="text-xl font-display text-neutral-400">
           {label}
         </label>
-        <span className="text-xs text-neutral-500">
+        <span className="text-md text-neutral-500">
           {value.length} / {maxItems} items
         </span>
       </div>
@@ -172,7 +172,7 @@ function ArrayFieldEditorComponent({
                     className={`
                       w-full px-3 py-2
                       bg-neutral-900 border rounded-lg
-                      text-sm text-neutral-100 placeholder-neutral-500
+                      text-lg text-neutral-100 placeholder-neutral-500
                       focus:outline-none focus:ring-1
                       ${
                         isOverLimit
@@ -199,7 +199,7 @@ function ArrayFieldEditorComponent({
                     className={`
                       w-full px-3 py-1.5
                       bg-neutral-900 border rounded-full
-                      text-sm text-neutral-100 placeholder-neutral-500
+                      text-lg text-neutral-100 placeholder-neutral-500
                       focus:outline-none focus:ring-1
                       ${
                         isOverLimit
@@ -282,7 +282,7 @@ function ArrayFieldEditorComponent({
           onClick={handleAdd}
           className={`
             flex items-center gap-2 px-3 py-2
-            text-sm text-neutral-400 hover:text-neutral-200
+            text-lg text-neutral-400 hover:text-neutral-200
             border border-dashed border-neutral-700 rounded-lg
             hover:border-neutral-500 transition-colors
             w-full justify-center
@@ -300,7 +300,7 @@ function ArrayFieldEditorComponent({
 
       {/* Help text */}
       {helpText && (
-        <p className="text-xs text-neutral-500">{helpText}</p>
+        <p className="text-md text-neutral-500">{helpText}</p>
       )}
     </div>
   )

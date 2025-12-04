@@ -35,7 +35,7 @@ function ChatBubbleComponent({ message, isStreaming = false }: ChatBubbleProps) 
         </span>
 
         {/* Message content */}
-        <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
+        <p className="text-md leading-relaxed whitespace-pre-wrap break-words">
           {message.content}
           {isStreaming && (
             <span className="inline-block w-2 h-4 ml-1 bg-soul-500 animate-pulse" aria-hidden="true" />

@@ -30,11 +30,11 @@ function ChatHeaderComponent({
       <div className="flex-1 min-w-0">
         <h2
           id="chat-sidebar-title"
-          className="text-sm font-display tracking-widest text-neutral-200 truncate"
+          className="text-xl font-display text-neutral-200 truncate"
         >
           Chat with {characterName}
         </h2>
-        <p className="text-xs text-neutral-500">
+        <p className="text-md text-neutral-500">
           Character #{tokenId}
         </p>
       </div>

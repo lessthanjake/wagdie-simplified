@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getElizaClient } from '@/lib/eliza/client'
-import { FIELD_LIMITS } from '@eliza/sdk'
+import { FIELD_LIMITS } from '@/types/eliza'
 import { randomUUID } from 'crypto'
 
 interface RouteParams {

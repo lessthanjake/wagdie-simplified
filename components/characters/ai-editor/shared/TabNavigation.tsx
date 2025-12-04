@@ -106,7 +106,7 @@ function TabNavigationComponent({
             onClick={() => !isDisabled && onTabChange(tab.id)}
             className={`
               relative flex items-center gap-2 px-4 py-3
-              text-sm font-medium transition-colors
+              text-lg font-medium transition-colors
               focus:outline-none focus-visible:ring-2 focus-visible:ring-soul-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-900
               ${
                 isActive

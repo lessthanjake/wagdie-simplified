@@ -190,7 +190,7 @@ function ChatSidebarComponent({
       <aside
         className={`
           fixed top-0 right-0 z-50 h-full
-          w-full md:w-[400px]
+          w-full md:w-[500px]
           bg-soul-950 border-l border-neutral-800
           flex flex-col
           transform transition-transform duration-300 ease-out

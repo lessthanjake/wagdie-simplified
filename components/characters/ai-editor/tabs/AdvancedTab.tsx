@@ -51,10 +51,10 @@ function AdvancedTabComponent({
     >
       {/* Introduction */}
       <div className="pb-4 border-b border-neutral-800">
-        <h3 className="text-sm font-display text-neutral-200 mb-2">
+        <h3 className="text-2xl font-display text-neutral-200 mb-2">
           Advanced Configuration
         </h3>
-        <p className="text-xs text-neutral-500">
+        <p className="text-md text-neutral-500">
           Fine-tune your character with system-level instructions and reference documents.
           These settings provide powerful customization for advanced users.
         </p>

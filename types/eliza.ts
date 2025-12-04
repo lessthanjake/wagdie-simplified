@@ -18,11 +18,9 @@ export type {
   StreamCompleteCallback,
   StreamErrorCallback,
   CharacterStyle as SDKCharacterStyle,
-  KnowledgeDocument as SDKKnowledgeDocument,
 } from '@eliza/sdk'
 
-// Re-export SDK FIELD_LIMITS for consistency
-export { FIELD_LIMITS as SDK_FIELD_LIMITS } from '@eliza/sdk'
+// Note: FIELD_LIMITS is defined locally below since SDK doesn't export it
 
 /**
  * Style configuration for different communication contexts

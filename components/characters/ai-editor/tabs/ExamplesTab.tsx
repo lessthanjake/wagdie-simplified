@@ -42,10 +42,10 @@ function ExamplesTabComponent({
     >
       {/* Introduction */}
       <div className="pb-4 border-b border-neutral-800">
-        <h3 className="text-sm font-display text-neutral-200 mb-2">
+        <h3 className="text-2xl font-display text-neutral-200 mb-2">
           Example Content
         </h3>
-        <p className="text-xs text-neutral-500">
+        <p className="text-md text-neutral-500">
           Provide examples of how your character communicates. Message examples train
           conversational patterns, while post examples shape social media content generation.
         </p>
@@ -53,7 +53,7 @@ function ExamplesTabComponent({
 
       {/* Example Messages Editor (existing component) */}
       <div>
-        <h4 className="text-xs font-display tracking-widest text-neutral-400 uppercase mb-4">
+        <h4 className="text-lg font-display text-neutral-400 mb-4">
           Conversation Examples
         </h4>
         <ExampleMessagesEditor
