@@ -40,10 +40,10 @@ function ChatMessagesComponent({
       {messages.length === 0 && !isStreaming && (
         <div className="flex flex-col items-center justify-center h-full text-center">
           <div className="text-4xl mb-4 opacity-30">💬</div>
-          <p className="text-neutral-500 text-sm">
+          <p className="text-neutral-500 text-md">
             Start a conversation with {characterName}
           </p>
-          <p className="text-neutral-600 text-xs mt-2">
+          <p className="text-neutral-600 text-md mt-2">
             Type a message below to begin
           </p>
         </div>

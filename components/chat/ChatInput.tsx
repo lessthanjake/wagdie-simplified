@@ -65,7 +65,7 @@ function ChatInputComponent({
         className="
           flex-1 min-h-[40px] max-h-[120px] px-3 py-2
           bg-neutral-900 border border-neutral-700 rounded-lg
-          text-sm text-neutral-100 placeholder-neutral-500
+          text-md text-neutral-100 placeholder-neutral-500
           focus:outline-none focus:border-soul-500 focus:ring-1 focus:ring-soul-500
           disabled:opacity-50 disabled:cursor-not-allowed
           resize-none

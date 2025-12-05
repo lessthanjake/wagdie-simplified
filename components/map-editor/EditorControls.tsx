@@ -20,7 +20,7 @@ export function EditorControls({ mode, onModeChange, disabled }: EditorControlsP
         onClick={() => onModeChange('view')}
         disabled={disabled}
         className={`
-          px-4 py-2 font-wagdie rounded transition-colors
+          px-4 py-2 font-display rounded transition-colors
           ${mode === 'view' || mode === 'edit'
             ? 'bg-soul-accent text-abyss'
             : 'bg-abyss text-soul-bone border border-soul-accent/60 hover:bg-soul-accent/20'
@@ -35,7 +35,7 @@ export function EditorControls({ mode, onModeChange, disabled }: EditorControlsP
         onClick={() => onModeChange('create')}
         disabled={disabled}
         className={`
-          px-4 py-2 font-wagdie rounded transition-colors
+          px-4 py-2 font-display rounded transition-colors
           ${mode === 'create'
             ? 'bg-soul-accent text-abyss'
             : 'bg-abyss text-soul-bone border border-soul-accent/60 hover:bg-soul-accent/20'

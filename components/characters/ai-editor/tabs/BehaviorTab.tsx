@@ -49,10 +49,10 @@ function BehaviorTabComponent({
     >
       {/* Introduction */}
       <div className="pb-4 border-b border-neutral-800">
-        <h3 className="text-sm font-display text-neutral-200 mb-2">
+        <h3 className="text-2xl font-display text-neutral-200 mb-2">
           Character Behavior
         </h3>
-        <p className="text-xs text-neutral-500">
+        <p className="text-md text-neutral-500">
           Configure how your character behaves in conversations. Topics define areas of
           expertise, adjectives shape personality, and style rules control communication
           patterns across different contexts.

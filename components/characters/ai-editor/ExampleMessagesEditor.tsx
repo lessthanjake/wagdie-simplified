@@ -41,7 +41,7 @@ function ExampleMessagesEditorComponent({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <label className="text-xs font-display tracking-widest text-neutral-400">
+        <label className="text-lg font-display text-neutral-400">
           Example Messages
         </label>
         <span className="text-xs text-neutral-500">
@@ -49,18 +49,18 @@ function ExampleMessagesEditorComponent({
         </span>
       </div>
 
-      <p className="text-xs text-neutral-500">
+      <p className="text-md text-neutral-500">
         Add example conversations to train the AI on how this character speaks.
       </p>
 
       {value.length === 0 && !readOnly && (
         <div className="text-center py-6 bg-neutral-900/50 rounded-lg border border-dashed border-neutral-700">
-          <p className="text-sm text-neutral-500 mb-3">No examples yet</p>
+          <p className="text-md text-neutral-500 mb-3">No examples yet</p>
           <Button
             variant="secondary"
             onClick={handleAdd}
             disabled={disabled}
-            className="text-sm"
+            className="text-md"
           >
             Add Example
           </Button>
@@ -120,7 +120,7 @@ function ExampleMessagePair({
   return (
     <div className="p-4 bg-neutral-900/50 rounded-lg border border-neutral-800 space-y-3">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-display tracking-widest text-neutral-500">
+        <span className="text-xs font-display text-neutral-500">
           Example #{index + 1}
         </span>
         {!readOnly && (

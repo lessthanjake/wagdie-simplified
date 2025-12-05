@@ -27,12 +27,12 @@ function SystemPromptEditorComponent({
       <div className="flex items-center justify-between">
         <label
           htmlFor="system-prompt-editor"
-          className="text-xs font-display tracking-widest text-neutral-400"
+          className="text-xl font-display text-neutral-400"
         >
           System Prompt (Advanced)
         </label>
         <span
-          className={`text-xs ${isOverLimit ? 'text-red-400' : 'text-neutral-500'}`}
+          className={`text-md ${isOverLimit ? 'text-red-400' : 'text-neutral-500'}`}
         >
           {charCount} / {FIELD_LIMITS.systemPrompt}
         </span>
@@ -49,7 +49,7 @@ function SystemPromptEditorComponent({
         className={`
           w-full px-3 py-2
           bg-neutral-900 border rounded-lg
-          text-sm text-neutral-100 placeholder-neutral-500 font-mono
+          text-md text-neutral-100 placeholder-neutral-500
           focus:outline-none focus:ring-1
           ${isOverLimit
             ? 'border-red-500 focus:border-red-500 focus:ring-red-500'
@@ -62,7 +62,7 @@ function SystemPromptEditorComponent({
         aria-describedby="system-prompt-help"
       />
 
-      <p id="system-prompt-help" className="text-xs text-neutral-500">
+      <p id="system-prompt-help" className="text-md text-neutral-500">
         Advanced: Custom instructions that control how the AI responds. Leave empty to use personality and backstory.
       </p>
     </div>

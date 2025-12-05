@@ -41,10 +41,10 @@ function IdentityTabComponent({
     >
       {/* Introduction */}
       <div className="pb-4 border-b border-neutral-800">
-        <h3 className="text-sm font-display text-neutral-200 mb-2">
+        <h3 className="text-2xl font-display text-neutral-200 mb-2">
           Character Identity
         </h3>
-        <p className="text-xs text-neutral-500">
+        <p className="text-md text-neutral-500">
           Define who your character is at their core. Bio entries establish the character&apos;s
           fundamental traits, while lore provides rich backstory and context that the AI can
           draw from during conversations.

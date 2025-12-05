@@ -34,7 +34,7 @@ export function DeleteConfirmation({
       <div className="bg-soul-shadow border border-soul-accent/40 rounded-lg p-6 max-w-md w-full mx-4">
         <h2
           id="delete-modal-title"
-          className="font-wagdie text-xl text-soul-accent mb-4"
+          className="font-display text-xl text-soul-accent mb-4"
         >
           Delete Location
         </h2>
@@ -60,7 +60,7 @@ export function DeleteConfirmation({
             onClick={onCancel}
             disabled={isDeleting}
             className="
-              px-4 py-2 bg-abyss text-soul-bone font-wagdie rounded
+              px-4 py-2 bg-abyss text-soul-bone font-display rounded
               border border-soul-accent/60 hover:bg-soul-accent/20 transition-colors
               disabled:opacity-50 disabled:cursor-not-allowed
             "
@@ -71,7 +71,7 @@ export function DeleteConfirmation({
             onClick={onConfirm}
             disabled={!canDelete || isDeleting}
             className={`
-              px-4 py-2 font-wagdie rounded transition-colors
+              px-4 py-2 font-display rounded transition-colors
               ${canDelete
                 ? 'bg-soul-ember text-white hover:bg-soul-ember/80'
                 : 'bg-soul-mist/20 text-soul-mist cursor-not-allowed'

@@ -115,7 +115,7 @@ function KnowledgeEditorComponent({
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <label className="text-xs font-display tracking-widest text-neutral-400 uppercase">
+        <label className="text-xl font-display text-neutral-400">
           Knowledge Documents
         </label>
         <span className="text-xs text-neutral-500">
@@ -228,11 +228,11 @@ function KnowledgeEditorComponent({
                     d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
                   />
                 </svg>
-                <p className="text-sm text-neutral-400">
+                <p className="text-md text-neutral-400">
                   <span className="text-soul-400 hover:text-soul-300">Click to upload</span> or drag
                   and drop
                 </p>
-                <p className="text-xs text-neutral-500">
+                <p className="text-sm text-neutral-500">
                   .txt or .md files up to {FIELD_LIMITS.maxKnowledgeSize / 1024}KB
                 </p>
               </>
@@ -256,7 +256,7 @@ function KnowledgeEditorComponent({
       )}
 
       {/* Help text */}
-      <p className="text-xs text-neutral-500">
+      <p className="text-md text-neutral-500">
         Knowledge documents provide reference material for RAG (retrieval-augmented generation).
         The AI can draw from this content when answering questions.
       </p>

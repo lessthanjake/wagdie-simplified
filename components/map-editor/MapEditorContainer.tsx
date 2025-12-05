@@ -25,7 +25,7 @@ const PhaserGame = dynamic(() => import('@/game/PhaserGame'), {
     <div className="absolute inset-0 flex items-center justify-center bg-abyss">
       <div className="flex flex-col items-center gap-4">
         <Spinner size="lg" />
-        <p className="text-soul-mist font-wagdie tracking-widest text-sm">
+        <p className="text-soul-mist font-display tracking-widest text-sm">
           Loading Map Editor
         </p>
       </div>
@@ -166,7 +166,7 @@ export function MapEditorContainer() {
             <div className="absolute inset-0 flex items-center justify-center bg-abyss/80 z-20">
               <div className="flex flex-col items-center gap-4">
                 <Spinner size="lg" />
-                <p className="text-soul-mist font-wagdie">Loading locations...</p>
+                <p className="text-soul-mist font-display">Loading locations...</p>
               </div>
             </div>
           )}
@@ -196,7 +196,7 @@ export function MapEditorContainer() {
           {/* Instructions */}
           {mapReady && !showForm && (
             <div className="absolute bottom-4 left-4 z-10">
-              <p className="text-xs text-soul-mist/60 font-wagdie">
+              <p className="text-xs text-soul-mist/60 font-display">
                 {editor.mode === 'create'
                   ? 'Click on the map to place a new location pin'
                   : 'Click on a pin to edit it'
