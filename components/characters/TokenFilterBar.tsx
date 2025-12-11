@@ -6,8 +6,8 @@
 'use client'
 
 import React from 'react';
-import { Tabs } from '@/components/ui'
-import type { TabItem } from '@/components/ui'
+import { Tabs } from '@/components-new'
+import type { TabItem } from '@/components-new'
 import type { CharacterFilterTab, SortOrder, OriginCount, AlignmentCount } from '@/types/character'
 import { SheetToggle } from './SheetToggle'
 import { OriginDropdown } from './OriginDropdown'

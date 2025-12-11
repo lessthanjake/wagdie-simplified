@@ -13,7 +13,7 @@ import { ChatInput } from './ChatInput'
 import { ConversationList } from './ConversationList'
 import { useCharacterChat } from '@/hooks/useCharacterChat'
 import { useConversations } from '@/hooks/useConversations'
-import { Button, Spinner } from '@/components/ui'
+import { Button, Spinner } from '@/components-new'
 
 interface ChatSidebarProps {
   tokenId: string

@@ -17,7 +17,7 @@ import { AdvancedTab } from './tabs/AdvancedTab'
 import { useAICharacter } from '@/hooks/useAICharacter'
 import { useAIPersonaEditor } from '@/hooks/useAIPersonaEditor'
 import { useKnowledgeUpload } from '@/hooks/useKnowledgeUpload'
-import { Card, CardContent, Button, Spinner } from '@/components/ui'
+import { Card, CardContent, Button, Spinner } from '@/components-new'
 import type { ElizaCharacterExport } from '@/types/eliza'
 
 interface AIPersonaTabProps {
