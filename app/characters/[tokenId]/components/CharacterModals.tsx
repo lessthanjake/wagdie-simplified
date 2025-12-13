@@ -9,7 +9,6 @@ import toast from 'react-hot-toast'
 import { SearingModal } from '@/components/modals/SearingModal'
 import { InfectionModal } from '@/components/modals/InfectionModal'
 import { CureModal } from '@/components/modals/CureModal'
-import { ChatSidebar } from '@/components/chat'
 
 interface CharacterModalsProps {
   tokenId: number
@@ -17,11 +16,9 @@ interface CharacterModalsProps {
   isSearingModalOpen: boolean
   isInfectionModalOpen: boolean
   isCureModalOpen: boolean
-  isChatOpen: boolean
   onCloseSearing: () => void
   onCloseInfection: () => void
   onCloseCure: () => void
-  onCloseChat: () => void
 }
 
 export function CharacterModals({
@@ -30,11 +27,9 @@ export function CharacterModals({
   isSearingModalOpen,
   isInfectionModalOpen,
   isCureModalOpen,
-  isChatOpen,
   onCloseSearing,
   onCloseInfection,
   onCloseCure,
-  onCloseChat,
 }: CharacterModalsProps) {
   return (
     <>
@@ -68,12 +63,6 @@ export function CharacterModals({
           toast.success('Character cured successfully!')
           window.location.reload()
         }}
-      />
-      <ChatSidebar
-        tokenId={String(tokenId)}
-        characterName={name}
-        isOpen={isChatOpen}
-        onClose={onCloseChat}
       />
     </>
   )

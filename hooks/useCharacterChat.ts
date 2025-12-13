@@ -3,7 +3,7 @@
  * Manages chat state and streaming responses for character conversations
  */
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { useAccount } from 'wagmi'
 import type { ChatMessage } from '@/types/eliza'
 
@@ -38,6 +38,8 @@ export function useCharacterChat(tokenId: string): UseCharacterChatReturn {
   const [streamingContent, setStreamingContent] = useState('')
   const [error, setError] = useState<string | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
+
+  useEffect(() => () => abortControllerRef.current?.abort(), [])
 
   // Send a message and handle streaming response
   const sendMessage = useCallback(async (content: string) => {
