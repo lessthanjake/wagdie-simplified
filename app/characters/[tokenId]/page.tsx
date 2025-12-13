@@ -24,10 +24,13 @@ import type { TabItem } from '@/components-new'
 import type { Character } from '@/types/character'
 import { isAdmin } from '@/lib/auth/admin'
 
+import { useChatDock } from '@/contexts/ChatDockContext'
+
 export default function CharacterDetailPage() {
   const params = useParams()
   const router = useRouter()
   const { address } = useAccount()
+  const { openChat } = useChatDock()
   const tokenId = parseInt(params.tokenId as string, 10)
 
   const [character, setCharacter] = useState<Character | null>(null)
@@ -37,7 +40,6 @@ export default function CharacterDetailPage() {
   const [isSearingModalOpen, setIsSearingModalOpen] = useState(false)
   const [isInfectionModalOpen, setIsInfectionModalOpen] = useState(false)
   const [isCureModalOpen, setIsCureModalOpen] = useState(false)
-  const [isChatOpen, setIsChatOpen] = useState(false)
   const [activeTab, setActiveTab] = useState('story')
   const [useLocalImage, setUseLocalImage] = useState(true)
 
@@ -162,7 +164,7 @@ export default function CharacterDetailPage() {
     <div className="min-h-screen bg-soul-950">
       <CharacterHeader tokenId={tokenId} isOwner={isOwner} isEditMode={isEditMode} isSaving={isSaving}
         onBack={() => router.push('/characters')} onEdit={handleEditToggle} onSave={handleSave}
-        onCancel={handleEditToggle} onChat={() => setIsChatOpen(true)} onAnimated={() => router.push(`/characters/${tokenId}/animated`)} />
+        onCancel={handleEditToggle} onChat={() => openChat({ tokenId: String(tokenId), characterName: name })} onAnimated={() => router.push(`/characters/${tokenId}/animated`)} />
 
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         <OwnershipVerificationBanner tokenId={BigInt(tokenId)} className="mb-8" />
@@ -213,7 +215,7 @@ export default function CharacterDetailPage() {
         </div>
       </div>
 
-      <CharacterModals tokenId={tokenId} name={name} isSearingModalOpen={isSearingModalOpen} isInfectionModalOpen={isInfectionModalOpen} isCureModalOpen={isCureModalOpen} isChatOpen={isChatOpen} onCloseSearing={() => setIsSearingModalOpen(false)} onCloseInfection={() => setIsInfectionModalOpen(false)} onCloseCure={() => setIsCureModalOpen(false)} onCloseChat={() => setIsChatOpen(false)} />
+      <CharacterModals tokenId={tokenId} name={name} isSearingModalOpen={isSearingModalOpen} isInfectionModalOpen={isInfectionModalOpen} isCureModalOpen={isCureModalOpen} onCloseSearing={() => setIsSearingModalOpen(false)} onCloseInfection={() => setIsInfectionModalOpen(false)} onCloseCure={() => setIsCureModalOpen(false)} />
     </div>
   )
 }

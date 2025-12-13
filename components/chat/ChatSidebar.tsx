@@ -5,7 +5,7 @@
 
 'use client'
 
-import { useEffect, useCallback, useState, memo } from 'react'
+import { useEffect, useCallback, useState, memo, useRef } from 'react'
 import { useAccount } from 'wagmi'
 import { ChatHeader } from './ChatHeader'
 import { ChatMessages } from './ChatMessages'
@@ -36,6 +36,18 @@ function ChatSidebarComponent({
 }: ChatSidebarProps) {
   const { isConnected, address } = useAccount()
   const [showHistory, setShowHistory] = useState(false)
+
+  const panelRef = useRef<HTMLElement | null>(null)
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    if (isOpen) {
+      setVisible(true)
+      return
+    }
+    const timer = setTimeout(() => setVisible(false), 300)
+    return () => clearTimeout(timer)
+  }, [isOpen])
 
   const {
     messages,
@@ -109,28 +121,24 @@ function ChatSidebarComponent({
   // Handle Escape key to close
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
-        if (showHistory) {
-          setShowHistory(false)
-        } else {
-          onClose()
-        }
+      if (e.key !== 'Escape' || !isOpen) return
+
+      const activeElement = document.activeElement
+      const isFocusWithinPanel =
+        !!activeElement && !!panelRef.current && panelRef.current.contains(activeElement)
+
+      if (!isFocusWithinPanel) return
+
+      if (showHistory) {
+        setShowHistory(false)
+      } else {
+        onClose()
       }
     }
 
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [isOpen, showHistory, onClose])
-
-  // Trap focus and prevent body scroll when open
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden'
-      return () => {
-        document.body.style.overflow = ''
-      }
-    }
-  }, [isOpen])
 
   // Handle selecting a conversation from history
   const handleSelectConversation = useCallback(async (id: string) => {
@@ -175,128 +183,118 @@ function ChatSidebarComponent({
     setShowHistory(prev => !prev)
   }, [])
 
-  if (!isOpen) return null
+  if (!visible && !isOpen) return null
 
   return (
-    <>
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 transition-opacity"
-        onClick={onClose}
-        aria-hidden="true"
-      />
-
-      {/* Sidebar */}
-      <aside
-        className={`
-          fixed top-0 right-0 z-50 h-full
+    <aside
+      ref={panelRef}
+      className={`
+          fixed top-0 right-0 z-40 h-full
           w-full md:w-[500px]
           bg-soul-950 border-l border-neutral-800
           flex flex-col
           transform transition-transform duration-300 ease-out
           ${isOpen ? 'translate-x-0' : 'translate-x-full'}
         `}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="chat-sidebar-title"
-      >
-        <ChatHeader
-          characterName={characterName}
-          tokenId={tokenId}
-          onClose={onClose}
-          onToggleHistory={toggleHistory}
-          onNewConversation={handleNewConversation}
-          showHistoryToggle={isConnected && conversations.length > 0}
-          isHistoryOpen={showHistory}
-        />
+      role="complementary"
+      aria-labelledby="chat-sidebar-title"
+    >
+      <ChatHeader
+        characterName={characterName}
+        tokenId={tokenId}
+        onClose={onClose}
+        onToggleHistory={toggleHistory}
+        onNewConversation={handleNewConversation}
+        showHistoryToggle={isConnected && conversations.length > 0}
+        isHistoryOpen={showHistory}
+      />
 
-        {/* Wallet connection gate */}
-        {!isConnected ? (
-          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
-            <div className="text-4xl mb-4 opacity-30">🔒</div>
-            <h3 className="text-lg font-display text-neutral-200 mb-2">
-              Wallet Required
-            </h3>
-            <p className="text-sm text-neutral-500 mb-4">
-              Connect your wallet to chat with {characterName}
-            </p>
-          </div>
-        ) : (
-          <>
-            {/* Error display */}
-            {error && (
-              <div className="px-4 py-3 bg-red-900/20 border-b border-red-800/50">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm text-red-400">{error}</p>
-                  <button
-                    onClick={clearError}
-                    className="text-red-400 hover:text-red-300"
-                    aria-label="Dismiss error"
+      {/* Wallet connection gate */}
+      {!isConnected ? (
+        <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+          <div className="text-4xl mb-4 opacity-30">🔒</div>
+          <h3 className="text-lg font-display text-neutral-200 mb-2">
+            Wallet Required
+          </h3>
+          <p className="text-sm text-neutral-500 mb-4">
+            Connect your wallet to chat with {characterName}
+          </p>
+        </div>
+      ) : (
+        <>
+          {/* Error display */}
+          {error && (
+            <div className="px-4 py-3 bg-red-900/20 border-b border-red-800/50">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-red-400">{error}</p>
+                <button
+                  onClick={clearError}
+                  className="text-red-400 hover:text-red-300"
+                  aria-label="Dismiss error"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Conversation history panel */}
+          {showHistory && (
+            <div className="border-b border-neutral-800 bg-neutral-900/50">
+              <div className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-display text-neutral-300">
+                    Conversation History
+                  </h3>
+                  <Button
+                    variant="secondary"
+                    onClick={handleNewConversation}
+                    className="px-3 py-1.5 text-xs"
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
+                    New Chat
+                  </Button>
                 </div>
+                <ConversationList
+                  conversations={conversations}
+                  activeConversationId={conversationId || undefined}
+                  isLoading={isLoadingConversations}
+                  isLoadingMore={isLoadingMore}
+                  hasMore={hasMore}
+                  onSelect={handleSelectConversation}
+                  onDelete={handleDeleteConversation}
+                  onLoadMore={loadMore}
+                />
               </div>
-            )}
+            </div>
+          )}
 
-            {/* Conversation history panel */}
-            {showHistory && (
-              <div className="border-b border-neutral-800 bg-neutral-900/50">
-                <div className="p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-display text-neutral-300">
-                      Conversation History
-                    </h3>
-                    <Button
-                      variant="secondary"
-                      onClick={handleNewConversation}
-                      className="px-3 py-1.5 text-xs"
-                    >
-                      New Chat
-                    </Button>
-                  </div>
-                  <ConversationList
-                    conversations={conversations}
-                    activeConversationId={conversationId || undefined}
-                    isLoading={isLoadingConversations}
-                    isLoadingMore={isLoadingMore}
-                    hasMore={hasMore}
-                    onSelect={handleSelectConversation}
-                    onDelete={handleDeleteConversation}
-                    onLoadMore={loadMore}
-                  />
-                </div>
-              </div>
-            )}
+          {/* Loading conversation indicator */}
+          {isLoadingConversation && (
+            <div className="flex items-center justify-center py-4 border-b border-neutral-800">
+              <Spinner size="sm" />
+              <span className="ml-2 text-sm text-neutral-500">Loading conversation...</span>
+            </div>
+          )}
 
-            {/* Loading conversation indicator */}
-            {isLoadingConversation && (
-              <div className="flex items-center justify-center py-4 border-b border-neutral-800">
-                <Spinner size="sm" />
-                <span className="ml-2 text-sm text-neutral-500">Loading conversation...</span>
-              </div>
-            )}
+          {/* Messages area */}
+          <ChatMessages
+            messages={messages}
+            isStreaming={isStreaming}
+            streamingContent={streamingContent}
+            characterName={characterName}
+          />
 
-            {/* Messages area */}
-            <ChatMessages
-              messages={messages}
-              isStreaming={isStreaming}
-              streamingContent={streamingContent}
-              characterName={characterName}
-            />
-
-            {/* Input */}
-            <ChatInput
-              onSend={handleSend}
-              disabled={isStreaming}
-              placeholder={`Message ${characterName}...`}
-            />
-          </>
-        )}
-      </aside>
-    </>
+          {/* Input */}
+          <ChatInput
+            onSend={handleSend}
+            disabled={isStreaming}
+            placeholder={`Message ${characterName}...`}
+          />
+        </>
+      )}
+    </aside>
   )
 }
 

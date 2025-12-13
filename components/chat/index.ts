@@ -11,3 +11,5 @@ export { ChatHeader } from './ChatHeader'
 export { TypingIndicator } from './TypingIndicator'
 export { ConversationList } from './ConversationList'
 export { ConversationItem } from './ConversationItem'
+
+export { ChatDock } from './ChatDock'

@@ -8,6 +8,9 @@ import { config } from '@/lib/wagmi'
 import { TransactionProvider } from '@/contexts/TransactionContext'
 import '@rainbow-me/rainbowkit/styles.css'
 
+import { ChatDockProvider } from '@/contexts/ChatDockContext'
+import { ChatDock } from '@/components/chat'
+
 export function Providers({ children }: { children: React.ReactNode }) {
   // Initialize QueryClient inside component to avoid issues with React Fast Refresh
   const [queryClient] = useState(() => new QueryClient())
@@ -23,7 +26,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
           })}
         >
           <TransactionProvider>
-            {children}
+            <ChatDockProvider>
+              {children}
+              <ChatDock />
+            </ChatDockProvider>
           </TransactionProvider>
         </RainbowKitProvider>
       </QueryClientProvider>

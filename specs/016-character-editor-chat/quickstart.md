@@ -72,23 +72,22 @@ npm run dev
 
 ## Component Usage
 
-### ChatSidebar
+### ChatDock (Global)
+
+Chat is now mounted globally via `ChatDockProvider` + `ChatDock` in `components/providers.tsx`, so you do not mount `ChatSidebar` directly inside pages/components. Instead, open the global chat dock using the context:
 
 ```tsx
-import { ChatSidebar } from '@/components/chat/ChatSidebar'
+'use client'
 
-function CharacterPage({ tokenId }: { tokenId: string }) {
-  const [isChatOpen, setIsChatOpen] = useState(false)
+import { useChatDock } from '@/contexts/ChatDockContext'
+
+function CharacterPage({ tokenId, name }: { tokenId: string; name: string }) {
+  const { openChat } = useChatDock()
 
   return (
-    <>
-      <button onClick={() => setIsChatOpen(true)}>Chat</button>
-      <ChatSidebar
-        tokenId={tokenId}
-        isOpen={isChatOpen}
-        onClose={() => setIsChatOpen(false)}
-      />
-    </>
+    <button onClick={() => openChat({ tokenId, characterName: name })}>
+      Chat
+    </button>
   )
 }
 ```
