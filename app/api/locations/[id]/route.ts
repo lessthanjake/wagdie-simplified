@@ -18,6 +18,16 @@ import type { UpdateLocationInput } from '@/lib/types/map'
 
 const locationService = new LocationService()
 
+function getDevErrorDetails(error: unknown): string | undefined {
+  if (process.env.NODE_ENV === 'production') return undefined
+  if (error instanceof Error) return error.message
+  try {
+    return JSON.stringify(error)
+  } catch {
+    return String(error)
+  }
+}
+
 interface RouteContext {
   params: Promise<{ id: string }>
 }
@@ -104,7 +114,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     console.error('Error updating location:', error)
     return NextResponse.json(
-      { success: false, error: 'Failed to update location' },
+      {
+        success: false,
+        error: 'Failed to update location',
+        details: getDevErrorDetails(error),
+      },
       { status: 500 }
     )
   }
@@ -156,7 +170,11 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
 
     console.error('Error deleting location:', error)
     return NextResponse.json(
-      { success: false, error: 'Failed to delete location' },
+      {
+        success: false,
+        error: 'Failed to delete location',
+        details: getDevErrorDetails(error),
+      },
       { status: 500 }
     )
   }

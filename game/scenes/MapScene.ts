@@ -77,6 +77,16 @@ export class MapScene extends Phaser.Scene {
   private tooltipText!: Phaser.GameObjects.Text;
   private tooltipBg!: Phaser.GameObjects.Rectangle;
 
+  private eventHandlers: {
+    setLayerVisibility?: (layers: Partial<LayerVisibility>) => void;
+    flyToLocation?: (data: { x: number; y: number; zoom?: number }) => void;
+    updateLocations?: (locations: any[]) => void;
+    updateCharacters?: (characters: any[]) => void;
+    updateEvents?: (events: { burns: any[]; deaths: any[]; fights: any[] }) => void;
+    editorModeChanged?: (data: { mode: 'view' | 'create' | 'edit' }) => void;
+    locationDeleted?: (data: { id: string }) => void;
+  } = {};
+
   constructor() {
     super('MapScene');
   }
@@ -112,6 +122,10 @@ export class MapScene extends Phaser.Scene {
 
     // Set up event listeners from React
     this.setupEventListeners();
+
+    // Ensure we always remove EventBus listeners when the scene is torn down
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.teardown, this);
+    this.events.once(Phaser.Scenes.Events.DESTROY, this.teardown, this);
 
     // Notify React that scene is ready
     EventBus.emit(MapEvents.SCENE_READY, this);
@@ -310,41 +324,47 @@ export class MapScene extends Phaser.Scene {
 
   private setupEventListeners(): void {
     // Layer visibility changes from React
-    EventBus.on(MapEvents.SET_LAYER_VISIBILITY, (layers: Partial<LayerVisibility>) => {
+    this.eventHandlers.setLayerVisibility = (layers: Partial<LayerVisibility>) => {
       Object.entries(layers).forEach(([key, visible]) => {
         this.layerVisibility[key as keyof LayerVisibility] = visible as boolean;
       });
       this.updateMarkerVisibility();
-    });
+    };
+    EventBus.on(MapEvents.SET_LAYER_VISIBILITY, this.eventHandlers.setLayerVisibility);
 
     // Fly to location
-    EventBus.on(MapEvents.FLY_TO_LOCATION, (data: { x: number; y: number; zoom?: number }) => {
+    this.eventHandlers.flyToLocation = (data: { x: number; y: number; zoom?: number }) => {
       this.flyTo(data.x * COORD_SCALE, data.y * COORD_SCALE, data.zoom);
-    });
+    };
+    EventBus.on(MapEvents.FLY_TO_LOCATION, this.eventHandlers.flyToLocation);
 
     // Update locations from React
-    EventBus.on(MapEvents.UPDATE_LOCATIONS, (locations: any[]) => {
+    this.eventHandlers.updateLocations = (locations: any[]) => {
       this.updateLocations(locations);
-    });
+    };
+    EventBus.on(MapEvents.UPDATE_LOCATIONS, this.eventHandlers.updateLocations);
 
     // Update characters from React
-    EventBus.on(MapEvents.UPDATE_CHARACTERS, (characters: any[]) => {
+    this.eventHandlers.updateCharacters = (characters: any[]) => {
       this.updateCharacters(characters);
-    });
+    };
+    EventBus.on(MapEvents.UPDATE_CHARACTERS, this.eventHandlers.updateCharacters);
 
     // Update events (burns, deaths, fights) from React
-    EventBus.on(MapEvents.UPDATE_EVENTS, (events: { burns: any[]; deaths: any[]; fights: any[] }) => {
+    this.eventHandlers.updateEvents = (events: { burns: any[]; deaths: any[]; fights: any[] }) => {
       this.updateEvents(events);
-    });
+    };
+    EventBus.on(MapEvents.UPDATE_EVENTS, this.eventHandlers.updateEvents);
 
     // Editor mode changes from React (018-map-editor)
-    EventBus.on(MapEvents.EDITOR_MODE_CHANGED, (data: { mode: 'view' | 'create' | 'edit' }) => {
+    this.eventHandlers.editorModeChanged = (data: { mode: 'view' | 'create' | 'edit' }) => {
       this.editorMode = data.mode;
       this.updateMarkerDraggability();
-    });
+    };
+    EventBus.on(MapEvents.EDITOR_MODE_CHANGED, this.eventHandlers.editorModeChanged);
 
     // Location deleted - remove marker
-    EventBus.on(MapEvents.LOCATION_DELETED, (data: { id: string }) => {
+    this.eventHandlers.locationDeleted = (data: { id: string }) => {
       const markerId = `location-${data.id}`;
       const marker = this.markers.get(markerId);
       if (marker) {
@@ -352,7 +372,8 @@ export class MapScene extends Phaser.Scene {
         this.markers.delete(markerId);
         this.markerData.delete(markerId);
       }
-    });
+    };
+    EventBus.on(MapEvents.LOCATION_DELETED, this.eventHandlers.locationDeleted);
   }
 
   private emitCameraChanged(): void {
@@ -368,7 +389,8 @@ export class MapScene extends Phaser.Scene {
    * Fly camera to a specific position with animation
    */
   public flyTo(x: number, y: number, zoom?: number): void {
-    const camera = this.cameras.main;
+    const camera = this.cameras?.main;
+    if (!camera) return;
     const duration = 500;
 
     camera.pan(x, y, duration, 'Power2');
@@ -588,16 +610,29 @@ export class MapScene extends Phaser.Scene {
   /**
    * Clean up when scene is destroyed
    */
-  shutdown(): void {
-    // Remove event listeners
-    EventBus.off(MapEvents.SET_LAYER_VISIBILITY);
-    EventBus.off(MapEvents.FLY_TO_LOCATION);
-    EventBus.off(MapEvents.UPDATE_LOCATIONS);
-    EventBus.off(MapEvents.UPDATE_CHARACTERS);
-    EventBus.off(MapEvents.UPDATE_EVENTS);
+  private teardown(): void {
+    if (this.eventHandlers.setLayerVisibility) {
+      EventBus.off(MapEvents.SET_LAYER_VISIBILITY, this.eventHandlers.setLayerVisibility);
+    }
+    if (this.eventHandlers.flyToLocation) {
+      EventBus.off(MapEvents.FLY_TO_LOCATION, this.eventHandlers.flyToLocation);
+    }
+    if (this.eventHandlers.updateLocations) {
+      EventBus.off(MapEvents.UPDATE_LOCATIONS, this.eventHandlers.updateLocations);
+    }
+    if (this.eventHandlers.updateCharacters) {
+      EventBus.off(MapEvents.UPDATE_CHARACTERS, this.eventHandlers.updateCharacters);
+    }
+    if (this.eventHandlers.updateEvents) {
+      EventBus.off(MapEvents.UPDATE_EVENTS, this.eventHandlers.updateEvents);
+    }
+    if (this.eventHandlers.editorModeChanged) {
+      EventBus.off(MapEvents.EDITOR_MODE_CHANGED, this.eventHandlers.editorModeChanged);
+    }
+    if (this.eventHandlers.locationDeleted) {
+      EventBus.off(MapEvents.LOCATION_DELETED, this.eventHandlers.locationDeleted);
+    }
 
-    // Remove editor event listeners
-    EventBus.off(MapEvents.EDITOR_MODE_CHANGED);
-    EventBus.off(MapEvents.LOCATION_DELETED);
+    this.eventHandlers = {};
   }
 }

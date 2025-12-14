@@ -25,7 +25,7 @@ export function useMapData() {
       if (typeof window === 'undefined') return;
 
       try {
-        console.log('[useMapData] Starting fetch with mock data...');
+        console.log('[useMapData] Starting fetch...');
         setIsLoading(true);
         setError(null);
 
@@ -48,7 +48,17 @@ export function useMapData() {
         setLoadingProgress(40);
 
         const locationRepo = new LocationRepository();
-        const locationsData = locationRepo.getMockLocations();
+        let locationsData: Location[] = [];
+        try {
+          locationsData = await locationRepo.getAll();
+        } catch {
+          locationsData = [];
+        }
+
+        if (!locationsData || locationsData.length === 0) {
+          console.warn('[useMapData] No locations returned, falling back to mock locations');
+          locationsData = locationRepo.getMockLocations();
+        }
 
         console.log('[useMapData] Locations loaded:', locationsData.length);
         setLocations(locationsData);
@@ -59,7 +69,16 @@ export function useMapData() {
         setLoadingProgress(60);
 
         const charLocationRepo = new CharacterLocationRepository();
-        const characterLocationsData = charLocationRepo.getMockCharacterLocations();
+        let characterLocationsData: CharacterLocation[] = [];
+        try {
+          characterLocationsData = await charLocationRepo.getConfirmed();
+        } catch {
+          characterLocationsData = [];
+        }
+
+        if (!characterLocationsData) {
+          characterLocationsData = [];
+        }
 
         console.log('[useMapData] Characters loaded:', characterLocationsData.length);
         setCharacterLocations(characterLocationsData);

@@ -57,7 +57,7 @@ export function createSupabaseClient(options: SupabaseClientOptions = {}) {
   // We keep this as a soft guard for the common hosted Supabase URL format.
   if (payload?.iss === 'supabase-demo' && /\\.supabase\\.co\\b/.test(supabaseUrl)) {
     console.warn(
-      `Supabase key issuer is \"supabase-demo\" but URL looks hosted (${supabaseUrl}). ` +
+      `Supabase key issuer is "supabase-demo" but URL looks hosted (${supabaseUrl}). ` +
         'If this is a hosted Supabase project, update your anon/service role keys.'
     )
   }

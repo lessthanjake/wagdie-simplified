@@ -9,12 +9,11 @@ import dynamic from 'next/dynamic'
 import { useState, useRef, useCallback } from 'react'
 import { useMapEditor } from '@/hooks/map/useMapEditor'
 import { EditorControls } from './EditorControls'
-import { LocationForm } from './LocationForm'
+import { LocationForm, type LocationFormSubmit } from './LocationForm'
 import { DeleteConfirmation } from './DeleteConfirmation'
 import { useLocationApi } from '@/hooks/map/useLocationApi'
 import { Spinner } from '@/components-new'
 import type { IRefPhaserGame } from '@/game/PhaserGame'
-import type { CreateLocationInput, UpdateLocationInput } from '@/lib/types/map'
 
 // Dynamically import PhaserGame to avoid SSR issues
 const PhaserGame = dynamic(() => import('@/game/PhaserGame'), {
@@ -45,13 +44,21 @@ export function MapEditorContainer() {
     setMapReady(true)
   }, [])
 
-  // Handle save for create/edit
-  const handleSave = async (data: CreateLocationInput | UpdateLocationInput) => {
+  const handleSave = async (payload: LocationFormSubmit) => {
     try {
-      if (editor.mode === 'create' && 'coordinates' in data) {
-        await editor.createLocation(data as CreateLocationInput)
-      } else if (editor.mode === 'edit' && editor.selectedLocation) {
-        await editor.updateLocation(editor.selectedLocation.id, data as UpdateLocationInput)
+      switch (payload.kind) {
+        case 'create_new': {
+          await editor.createLocation(payload.input)
+          return
+        }
+        case 'move_existing': {
+          await editor.updateLocation(payload.locationId, payload.input)
+          return
+        }
+        case 'edit_existing': {
+          await editor.updateLocation(payload.locationId, payload.input)
+          return
+        }
       }
     } catch {
       // Error is already stored in editor.error
@@ -99,6 +106,11 @@ export function MapEditorContainer() {
 
     if (editor.selectedLocation?.metadata?.coordinates) {
       return editor.selectedLocation.metadata.coordinates
+    }
+
+    const center = editor.selectedLocation?.metadata?.center
+    if (center && center.length === 2) {
+      return { x: center[0], y: center[1] }
     }
 
     return { x: 0, y: 0 }
@@ -158,7 +170,7 @@ export function MapEditorContainer() {
             <div className="absolute bottom-4 left-4 z-10">
               <p className="text-xs text-soul-mist/60 font-display">
                 {editor.mode === 'create'
-                  ? 'Click on the map to place a new location pin'
+                  ? 'Click the map, then move an existing location or create a new one.'
                   : 'Click on a pin to edit it'
                 }
               </p>
@@ -173,6 +185,7 @@ export function MapEditorContainer() {
           <LocationForm
             mode={editor.mode === 'create' ? 'create' : 'edit'}
             location={editor.selectedLocation ?? undefined}
+            locations={editor.locations}
             coordinates={getCurrentCoordinates()}
             onSave={handleSave}
             onCancel={handleCancel}

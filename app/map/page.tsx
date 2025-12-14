@@ -55,6 +55,7 @@ export default function MapPage() {
   const [selectedMarker, setSelectedMarker] = useState<MarkerInfo | null>(null);
   const [showLayerPanel, setShowLayerPanel] = useState(false);
   const [mapReady, setMapReady] = useState(false);
+  const didInitialFly = useRef(false);
 
   const handleSceneReady = useCallback(() => {
     setMapReady(true);
@@ -74,6 +75,23 @@ export default function MapPage() {
     if (mapReady && locations.length > 0) {
       EventBus.emit(MapEvents.UPDATE_LOCATIONS, locations);
     }
+  }, [locations, mapReady]);
+
+  useEffect(() => {
+    if (!mapReady) return;
+    if (didInitialFly.current) return;
+
+    const firstWithCenter = locations.find(
+      (loc) => Array.isArray(loc.metadata?.center) && loc.metadata.center.length === 2
+    );
+    if (!firstWithCenter?.metadata?.center) return;
+
+    didInitialFly.current = true;
+    EventBus.emit(MapEvents.FLY_TO_LOCATION, {
+      x: firstWithCenter.metadata.center[0],
+      y: firstWithCenter.metadata.center[1],
+      zoom: 1.5,
+    });
   }, [locations, mapReady]);
 
   useEffect(() => {
