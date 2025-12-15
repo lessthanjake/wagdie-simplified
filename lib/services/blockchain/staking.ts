@@ -89,6 +89,36 @@ export class StakingService extends BaseBlockchainService {
     }
   }
 
+  async getStakedLocations(
+    wagdieIds: number[]
+  ): Promise<{ data?: Map<number, bigint>; error?: ContractError }> {
+    if (wagdieIds.length === 0) {
+      return { data: new Map<number, bigint>() }
+    }
+
+    const contracts = wagdieIds.map((wagdieId) => ({
+      address: this.contractAddresses.wagdieWorld,
+      abi: wagdieWorldABI,
+      functionName: 'wagdieIdToStakedLocation' as const,
+      args: [wagdieId] as const,
+    }))
+
+    const result = await this.multicall<bigint[]>(contracts)
+
+    if (result.error) {
+      return { error: result.error }
+    }
+
+    const locations = new Map<number, bigint>()
+    const locationIds = result.data ?? []
+
+    wagdieIds.forEach((wagdieId, index) => {
+      locations.set(wagdieId, locationIds[index] ?? 0n)
+    })
+
+    return { data: locations }
+  }
+
   /**
    * Get location information
    */

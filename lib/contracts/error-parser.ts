@@ -102,7 +102,7 @@ function parseRevertReason(errorName: string): string {
     'Location does not exist': 'This location does not exist.',
 
     // Generic fallback
-    default: 'Transaction failed. Please try again.',
+    default: 'Request failed. Please try again.',
   }
 
   return errorMap[errorName] || errorMap.default

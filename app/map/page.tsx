@@ -10,11 +10,14 @@
 
 import dynamic from 'next/dynamic';
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useAccount } from 'wagmi';
 import { useMapData } from '@/hooks/map/useMapData';
 import { useMapLayers } from '@/hooks/map/useMapLayers';
 import { EventBus, MapEvents } from '@/game/EventBus';
 import { Spinner } from '@/components-new';
+import MapStakingSidebar from '@/components/map/MapStakingSidebar';
 import type { IRefPhaserGame } from '@/game/PhaserGame';
+import type { Location } from '@/lib/types/map';
 
 // Dynamically import PhaserGame to avoid SSR issues
 const PhaserGame = dynamic(() => import('@/game/PhaserGame'), {
@@ -47,8 +50,14 @@ interface MarkerInfo {
   data: any;
 }
 
+interface SelectedStakingLocation {
+  location: Location;
+  locationId: bigint;
+}
+
 export default function MapPage() {
   const phaserRef = useRef<IRefPhaserGame>(null);
+  const { address } = useAccount();
   const { locations, characterLocations, isLoading, error } = useMapData();
   const { layers, toggleLayer } = useMapLayers();
 
@@ -57,12 +66,26 @@ export default function MapPage() {
   const [mapReady, setMapReady] = useState(false);
   const didInitialFly = useRef(false);
 
+  const [showStakingSidebar, setShowStakingSidebar] = useState(false);
+  const [selectedStakingLocation, setSelectedStakingLocation] = useState<SelectedStakingLocation | null>(null);
+
   const handleSceneReady = useCallback(() => {
     setMapReady(true);
   }, []);
 
   const handleMarkerClick = useCallback((marker: MarkerInfo) => {
     setSelectedMarker(marker);
+
+    if (marker.type === 'location') {
+      const location = marker.data as Location;
+
+      try {
+        const locationId = BigInt(location.id);
+        setSelectedStakingLocation({ location, locationId });
+      } catch {
+        setSelectedStakingLocation(null);
+      }
+    }
   }, []);
 
   useEffect(() => {
@@ -159,6 +182,26 @@ export default function MapPage() {
         <span className="font-display text-xs  tracking-widest hidden sm:inline">Layers</span>
       </button>
 
+      {/* Characters sidebar toggle */}
+      <button
+        onClick={() => setShowStakingSidebar(!showStakingSidebar)}
+        className={`absolute top-4 right-4 z-50 flex items-center gap-2 px-3 py-2 rounded border transition-all ${
+          showStakingSidebar
+            ? 'bg-soul-accent text-black border-soul-accent'
+            : 'bg-black/80 text-neutral-300 border-neutral-700 hover:border-soul-accent hover:text-soul-accent'
+        }`}
+      >
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M17 20h5v-2a4 4 0 00-4-4h-1m-4 6H2v-2a4 4 0 014-4h7m0 6v-2a4 4 0 00-4-4H6m9-6a4 4 0 11-8 0 4 4 0 018 0zm7 4a3 3 0 10-6 0 3 3 0 006 0z"
+          />
+        </svg>
+        <span className="font-display text-xs  tracking-widest hidden sm:inline">Characters</span>
+      </button>
+
       {/* Layer Panel */}
       <div
         className={`absolute top-16 left-4 z-40 bg-black/95 border border-soul-accent/60 rounded-lg p-4 shadow-xl backdrop-blur-sm transition-all duration-200 ${
@@ -247,6 +290,14 @@ export default function MapPage() {
           </p>
         </div>
       )}
+
+      {/* Character staking sidebar */}
+      <MapStakingSidebar
+        isOpen={showStakingSidebar}
+        onClose={() => setShowStakingSidebar(false)}
+        selectedLocation={selectedStakingLocation}
+        walletAddress={address}
+      />
     </div>
   );
 }

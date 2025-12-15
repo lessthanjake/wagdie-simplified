@@ -52,8 +52,17 @@ export function useStaking(): UseStakingResult {
       const service = new StakingService({ publicClient, walletClient })
       await service.initialize()
 
-      const result = await service.isApprovedForStaking(address, tokenId)
-      return result.data ?? false
+      // Prefer operator approval (setApprovalForAll) for "approve once, stake many"
+      const operatorApproval = await service.isApprovedForStaking(address)
+      if (operatorApproval.data) return true
+
+      // If operator approval is not set, optionally fall back to per-token approval
+      if (tokenId) {
+        const tokenApproval = await service.isApprovedForStaking(address, tokenId)
+        return tokenApproval.data ?? false
+      }
+
+      return false
     } catch (err) {
       logError(err, 'checkApproval')
       return false

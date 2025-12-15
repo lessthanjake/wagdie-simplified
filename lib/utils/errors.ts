@@ -111,7 +111,7 @@ export function getUserFriendlyErrorMessage(error: unknown): string {
   }
 
   // Generic fallback
-  return 'Transaction failed. Please try again or contact support if the issue persists.'
+  return 'Request failed. Please try again or contact support if the issue persists.'
 }
 
 export function logError(error: unknown, context?: string): void {
