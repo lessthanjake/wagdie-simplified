@@ -98,6 +98,7 @@ export const Tabs = React.memo<TabsProps>(({
     }
   }, []);
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const _activeItem = items.find(item => item.id === activeId);
 
   return (

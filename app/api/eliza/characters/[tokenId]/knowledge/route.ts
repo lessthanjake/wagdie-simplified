@@ -45,7 +45,9 @@ export async function GET(
     }
 
     const client = getElizaClient()
-    const character = await client.characters.get(tokenId)
+    // Note: SDK Character type doesn't include all Eliza character fields
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const character = await client.characters.get(tokenId) as any
 
     if (!character) {
       return NextResponse.json(
@@ -55,7 +57,8 @@ export async function GET(
     }
 
     // Return knowledge documents (without full content to reduce payload)
-    const documents = (character.knowledge || []).map((doc) => ({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const documents = (character.knowledge || []).map((doc: any) => ({
       id: doc.id,
       path: doc.path,
       // Include content preview (first 200 chars)
@@ -127,7 +130,9 @@ export async function POST(
 
     // Get current character to check knowledge limit
     const client = getElizaClient()
-    const character = await client.characters.get(tokenId)
+    // Note: SDK Character type doesn't include all Eliza character fields
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const character = await client.characters.get(tokenId) as any
 
     if (!character) {
       return NextResponse.json(
@@ -156,9 +161,8 @@ export async function POST(
     // Update character with new knowledge
     const updatedKnowledge = [...currentKnowledge, newDocument]
 
-    await client.characters.update(tokenId, {
-      knowledge: updatedKnowledge,
-    })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await client.characters.update(tokenId, { knowledge: updatedKnowledge } as any)
 
     // Return the new document (without full content)
     return NextResponse.json(

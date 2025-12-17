@@ -15,10 +15,9 @@ import {
   jsonDeleted,
   jsonServerError,
   parseJsonBody,
-  requireAdmin,
-  isAuthError,
-  handleServiceError,
-} from '@/lib/api'
+} from '@/lib/api/responses'
+import { requireAdmin, isAuthError } from '@/lib/api/auth'
+import { handleServiceError } from '@/lib/api/errors'
 
 const locationService = new LocationService()
 

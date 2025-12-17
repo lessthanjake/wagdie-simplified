@@ -28,7 +28,9 @@ export async function GET(
 
     // Get character from Eliza API
     const client = getElizaClient()
-    const character = await client.characters.get(tokenId)
+    // Note: The SDK Character type doesn't include all Eliza character fields
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const character = await client.characters.get(tokenId) as any
 
     if (!character) {
       return NextResponse.json(
@@ -78,7 +80,8 @@ export async function GET(
       messageExamples: convertedMessageExamples,
       postExamples: character.postExamples,
       systemPrompt: character.systemPrompt || undefined,
-      knowledge: character.knowledge?.map((doc) => ({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      knowledge: character.knowledge?.map((doc: any) => ({
         id: doc.id,
         path: doc.path,
         content: doc.content || '',

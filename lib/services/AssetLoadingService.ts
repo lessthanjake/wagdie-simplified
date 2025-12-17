@@ -12,7 +12,7 @@
 
 if (process.env.NODE_ENV !== 'production') {
   console.warn(
-    '[DEPRECATED] Import from \"@/lib/services/asset-loading-service\" instead of \"@/lib/services/AssetLoadingService\". This shim will be removed after repo-wide import migration.'
+    "[DEPRECATED] Import from '@/lib/services/asset-loading-service' instead of '@/lib/services/AssetLoadingService'. This shim will be removed after repo-wide import migration."
   );
 }
 
