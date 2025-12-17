@@ -414,7 +414,7 @@ export function MapStakingSidebar({
               {/* Compact approved indicator */}
               {isConnected && approvalState === 'approved' && (
                 <div className="flex items-center gap-2 px-3 py-2 bg-green-900/20 border border-green-800/30 rounded-lg">
-                  <Badge variant="success">Approved</Badge>
+                  <Badge variant="outline" className="border-green-600/50 text-green-500">Approved</Badge>
                   <span className="text-xs text-neutral-400 font-eskapade">
                     Staking contract approved
                   </span>
@@ -463,7 +463,6 @@ export function MapStakingSidebar({
                           onClick={handleApprove}
                           disabled={
                             approvalState === 'checking' ||
-                            approvalState === 'approved' ||
                             isApproving
                           }
                         >
@@ -499,7 +498,7 @@ export function MapStakingSidebar({
                   <h3 className="text-xs font-display tracking-widest text-neutral-300">
                     Unstaked
                   </h3>
-                  <Badge variant="secondary">{unstakedCharacters.length}</Badge>
+                  <Badge variant="default">{unstakedCharacters.length}</Badge>
                 </div>
 
                 {isLoadingCharacters ? (
@@ -543,7 +542,7 @@ export function MapStakingSidebar({
                               <div className="truncate text-sm text-neutral-200 font-display tracking-wide">
                                 {name}
                               </div>
-                              <Badge variant="secondary">Unstaked</Badge>
+                              <Badge variant="outline">Unstaked</Badge>
                             </div>
                             <div className="text-xs text-neutral-500 font-eskapade">
                               Token #{character.token_id}
@@ -569,7 +568,7 @@ export function MapStakingSidebar({
                   <h3 className="text-xs font-display tracking-widest text-neutral-300">
                     Staked
                   </h3>
-                  <Badge variant="secondary">{stakedCharacters.length}</Badge>
+                  <Badge variant="default">{stakedCharacters.length}</Badge>
                 </div>
 
                 {stakedCharacters.length === 0 ? (
@@ -609,7 +608,7 @@ export function MapStakingSidebar({
                               <div className="truncate text-sm text-neutral-200 font-display tracking-wide">
                                 {name}
                               </div>
-                              <Badge variant="warning">Staked</Badge>
+                              <Badge variant="accent">Staked</Badge>
                             </div>
 
                             <div className="text-xs text-neutral-500 font-eskapade">

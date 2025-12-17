@@ -7,7 +7,6 @@
 export * from './client'
 export * from './endpoints'
 
-// Server-side utilities (for API routes)
-export * from './responses'
-export * from './auth'
-export * from './errors'
+// Note: Server-only utilities (responses, auth, errors) should be imported
+// directly from their files in API routes, not from this index.
+// e.g. import { requireAdmin } from '@/lib/api/auth'

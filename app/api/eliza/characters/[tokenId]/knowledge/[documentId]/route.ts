@@ -30,7 +30,9 @@ export async function GET(
     }
 
     const client = getElizaClient()
-    const character = await client.characters.get(tokenId)
+    // Note: SDK Character type doesn't include all Eliza character fields
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const character = await client.characters.get(tokenId) as any
 
     if (!character) {
       return NextResponse.json(
@@ -39,7 +41,8 @@ export async function GET(
       )
     }
 
-    const document = (character.knowledge || []).find((doc) => doc.id === documentId)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const document = (character.knowledge || []).find((doc: any) => doc.id === documentId)
 
     if (!document) {
       return NextResponse.json(
@@ -86,7 +89,9 @@ export async function DELETE(
     }
 
     const client = getElizaClient()
-    const character = await client.characters.get(tokenId)
+    // Note: SDK Character type doesn't include all Eliza character fields
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const character = await client.characters.get(tokenId) as any
 
     if (!character) {
       return NextResponse.json(
@@ -96,7 +101,8 @@ export async function DELETE(
     }
 
     const currentKnowledge = character.knowledge || []
-    const documentIndex = currentKnowledge.findIndex((doc) => doc.id === documentId)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const documentIndex = currentKnowledge.findIndex((doc: any) => doc.id === documentId)
 
     if (documentIndex === -1) {
       return NextResponse.json(
@@ -106,12 +112,12 @@ export async function DELETE(
     }
 
     // Remove the document
-    const updatedKnowledge = currentKnowledge.filter((doc) => doc.id !== documentId)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const updatedKnowledge = currentKnowledge.filter((doc: any) => doc.id !== documentId)
 
     // Update character
-    await client.characters.update(tokenId, {
-      knowledge: updatedKnowledge,
-    })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await client.characters.update(tokenId, { knowledge: updatedKnowledge } as any)
 
     return NextResponse.json(
       { success: true, message: 'Document deleted' },

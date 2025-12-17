@@ -12,7 +12,7 @@
 
 if (process.env.NODE_ENV !== 'production') {
   console.warn(
-    '[DEPRECATED] Import from \"@/lib/services/asset-error-handler\" instead of \"@/lib/services/AssetErrorHandler\". This shim will be removed after repo-wide import migration.'
+    "[DEPRECATED] Import from '@/lib/services/asset-error-handler' instead of '@/lib/services/AssetErrorHandler'. This shim will be removed after repo-wide import migration."
   );
 }
 

@@ -33,6 +33,7 @@ export function Header() {
   }
 
   // TODO: Wire up dark mode toggle in UI
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const _toggleDarkMode = () => {
     setDarkMode(!darkMode)
     document.documentElement.classList.toggle('dark')

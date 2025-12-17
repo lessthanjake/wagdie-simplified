@@ -14,8 +14,8 @@ import type {
   AssetPerformanceMetrics,
   AssetLoadingService as IAssetLoadingService
 } from '@/types/assets';
-import { getAssetCache, type CacheEntry } from '@/lib/services/asset-cache';
-import { getAssetOptimizer, type AssetOptimizationOptions } from '@/lib/utils/asset-optimization';
+import { getAssetCache } from '@/lib/services/asset-cache';
+import { getAssetOptimizer } from '@/lib/utils/asset-optimization';
 import { isAllowedAssetId } from '@/lib/services/assets/asset-ids';
 import {
   getAssetUrl as getAssetUrlFromPolicy,
