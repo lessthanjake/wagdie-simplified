@@ -85,6 +85,9 @@ export default function MapPage() {
   const phaserRef = useRef<IRefPhaserGame>(null);
   const { address } = useAccount();
 
+  // Normalize wallet address for case-insensitive comparison
+  const walletLower = useMemo(() => (address ? address.toLowerCase() : null), [address]);
+
   const { locations, stakedCharacters, isLoading, error } = useMapData();
   const { layers, toggleLayer } = useMapLayers();
 
@@ -169,9 +172,21 @@ export default function MapPage() {
   }, [locations, mapReady]);
 
   const mapCharacterMarkers = useMemo((): MapCharacterData[] => {
+    // Wallet-only pins: if no connected wallet, show no character markers.
+    // The location popup list still shows ALL staked characters (stakedByLocationId is unchanged).
+    if (!walletLower) return [];
+
     const out: MapCharacterData[] = [];
 
     for (const c of stakedCharacters) {
+      // Only render pins for the connected wallet's characters.
+      // owner_address should already be stored lowercase in DB, but normalize defensively.
+      const ownerLower =
+        typeof c.owner_address === 'string' && c.owner_address.length > 0
+          ? c.owner_address.toLowerCase()
+          : null;
+      if (!ownerLower || ownerLower !== walletLower) continue;
+
       // Now properly typed as CharacterWithLocation with location?: JoinedLocation | null
       const joinedLocation = c.location;
 
@@ -201,12 +216,12 @@ export default function MapPage() {
 
     out.sort((a, b) => a.character_token_id - b.character_token_id);
     return out;
-  }, [stakedCharacters]);
+  }, [stakedCharacters, walletLower]);
 
   useEffect(() => {
-    if (mapReady && mapCharacterMarkers.length > 0) {
-      EventBus.emit(MapEvents.UPDATE_CHARACTERS, mapCharacterMarkers);
-    }
+    if (!mapReady) return;
+    // Always emit, even if empty, so Phaser can clear stale markers on disconnect/wallet change.
+    EventBus.emit(MapEvents.UPDATE_CHARACTERS, mapCharacterMarkers);
   }, [mapCharacterMarkers, mapReady]);
 
   // Error state

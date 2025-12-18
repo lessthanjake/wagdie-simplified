@@ -426,6 +426,29 @@ export class MapScene extends Phaser.Scene {
    * Add or update character markers
    */
   public updateCharacters(characters: MapCharacterData[]): void {
+    // Reconcile existing character markers with the incoming payload.
+    // Important for wallet-only pin rendering: when the wallet changes or disconnects,
+    // React will send a different (possibly empty) list and we must remove stale pins.
+    const desiredIds = new Set<string>(
+      characters.map((c) => `character-${c.character_token_id}`)
+    );
+
+    // Remove character markers that are no longer in the payload
+    for (const [id, data] of Array.from(this.markerData.entries())) {
+      if (data.type !== 'character') continue;
+      if (desiredIds.has(id)) continue;
+
+      const marker = this.markers.get(id);
+      if (marker) {
+        marker.destroy();
+      }
+      this.markers.delete(id);
+      this.markerData.delete(id);
+    }
+
+    // If there are no characters to show, we're done (pins already cleared).
+    if (characters.length === 0) return;
+
     const charactersByLocationId = new Map<string, MapCharacterData[]>();
 
     for (const charLocation of characters) {
