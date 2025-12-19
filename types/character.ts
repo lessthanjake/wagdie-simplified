@@ -125,12 +125,16 @@ export interface CharacterFilters {
   page: number
   perPage: number
   search?: string
-  // NEW: Character sheet filter
+  // Character sheet filter
   hasSheet?: boolean
-  // NEW: Origin/body type filter
+  // Origin/body type filter (Body trait)
   origin?: string
-  // NEW: Alignment filter (D&D style)
+  // Alignment filter (D&D style)
   alignment?: string
+  // Equipment filters (trait types from NFT metadata)
+  armor?: string
+  back?: string
+  mask?: string
 }
 
 export interface CharactersResponse {
@@ -168,5 +172,22 @@ export interface AlignmentCount {
  */
 export interface AlignmentsResponse {
   alignments: AlignmentCount[]
+  totalCharacters: number
+}
+
+/**
+ * Generic trait count for any metadata trait
+ */
+export interface TraitCount {
+  value: string
+  count: number
+}
+
+/**
+ * Generic trait counts response
+ */
+export interface TraitCountsResponse {
+  traitType: string
+  traits: TraitCount[]
   totalCharacters: number
 }

@@ -1,0 +1,423 @@
+/**
+ * FilterSidebar Component
+ * Collapsible sidebar containing all character filter controls
+ * WAGDIE themed styling with mobile-responsive design
+ */
+
+'use client'
+
+import React, { useState, useCallback } from 'react'
+import { Tabs } from '@/components/ui'
+import type { TabItem } from '@/components/ui'
+import type { CharacterFilterTab, SortOrder, OriginCount, AlignmentCount, TraitCount } from '@/types/character'
+import { SheetToggle } from './SheetToggle'
+import { OriginDropdown } from './OriginDropdown'
+import { AlignmentDropdown } from './AlignmentDropdown'
+import { TraitDropdown } from './TraitDropdown'
+
+interface FilterSidebarProps {
+  // Tab & Sort controls
+  currentTab: CharacterFilterTab
+  currentSort: SortOrder
+  onTabChange: (tab: CharacterFilterTab) => void
+  onSortChange: (sort: SortOrder) => void
+  // Search
+  searchValue: string
+  onSearchChange: (value: string) => void
+  onClearSearch: () => void
+  // Sheet filter
+  hasSheetFilter: boolean
+  onHasSheetChange: (hasSheet: boolean) => void
+  // Origin filter
+  originFilter: string | null
+  availableOrigins: OriginCount[]
+  onOriginChange: (origin: string | null) => void
+  originsLoading: boolean
+  // Alignment filter
+  alignmentFilter: string | null
+  availableAlignments: AlignmentCount[]
+  onAlignmentChange: (alignment: string | null) => void
+  alignmentsLoading: boolean
+  // Equipment filters
+  armorFilter: string | null
+  availableArmor: TraitCount[]
+  onArmorChange: (armor: string | null) => void
+  armorLoading: boolean
+  backFilter: string | null
+  availableBack: TraitCount[]
+  onBackChange: (back: string | null) => void
+  backLoading: boolean
+  maskFilter: string | null
+  availableMask: TraitCount[]
+  onMaskChange: (mask: string | null) => void
+  maskLoading: boolean
+  // Clear all
+  onClearAllFilters: () => void
+  // Results info
+  totalCount: number
+  className?: string
+}
+
+const TAB_ITEMS: TabItem[] = [
+  { id: 'all', label: 'All' },
+  { id: 'owned', label: 'My Characters' },
+  { id: 'infected', label: 'Infected' },
+  { id: 'cured', label: 'Cured' },
+  { id: 'staked', label: 'Staked' },
+]
+
+export function FilterSidebar({
+  currentTab,
+  currentSort,
+  onTabChange,
+  onSortChange,
+  searchValue,
+  onSearchChange,
+  onClearSearch,
+  hasSheetFilter,
+  onHasSheetChange,
+  originFilter,
+  availableOrigins,
+  onOriginChange,
+  originsLoading,
+  alignmentFilter,
+  availableAlignments,
+  onAlignmentChange,
+  alignmentsLoading,
+  armorFilter,
+  availableArmor,
+  onArmorChange,
+  armorLoading,
+  backFilter,
+  availableBack,
+  onBackChange,
+  backLoading,
+  maskFilter,
+  availableMask,
+  onMaskChange,
+  maskLoading,
+  onClearAllFilters,
+  totalCount,
+  className = ''
+}: FilterSidebarProps) {
+  const [isCollapsed, setIsCollapsed] = useState(false)
+  const [isMobileOpen, setIsMobileOpen] = useState(false)
+
+  // Count active filters
+  const activeFilterCount = [
+    hasSheetFilter,
+    originFilter !== null,
+    alignmentFilter !== null,
+    armorFilter !== null,
+    backFilter !== null,
+    maskFilter !== null,
+    searchValue.length > 0
+  ].filter(Boolean).length
+
+  const toggleCollapse = useCallback(() => {
+    setIsCollapsed(prev => !prev)
+  }, [])
+
+  const toggleMobile = useCallback(() => {
+    setIsMobileOpen(prev => !prev)
+  }, [])
+
+  return (
+    <>
+      {/* Mobile Filter Toggle Button */}
+      <button
+        onClick={toggleMobile}
+        className="lg:hidden fixed bottom-4 right-4 z-50 flex items-center gap-2 px-4 py-3 bg-soul-accent text-black font-display text-sm tracking-wider rounded-sm shadow-lg hover:bg-soul-accent/90 transition-colors"
+        aria-label="Toggle filters"
+      >
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+        </svg>
+        <span>Filters</span>
+        {activeFilterCount > 0 && (
+          <span className="flex items-center justify-center w-5 h-5 bg-black/30 rounded-full text-xs">
+            {activeFilterCount}
+          </span>
+        )}
+      </button>
+
+      {/* Mobile Overlay */}
+      {isMobileOpen && (
+        <div
+          className="lg:hidden fixed inset-0 bg-black/60 z-40"
+          onClick={toggleMobile}
+        />
+      )}
+
+      {/* Sidebar Container */}
+      <aside
+        className={`
+          ${className}
+          ${isCollapsed ? 'w-16' : 'w-72'}
+          ${isMobileOpen ? 'fixed inset-y-0 left-0 translate-x-0' : 'hidden lg:block'}
+          lg:relative z-50 lg:z-10
+          h-screen lg:h-auto lg:self-start lg:sticky lg:top-4
+          bg-soul-950 border-r border-neutral-800
+          transition-all duration-300 ease-in-out
+          overflow-hidden flex-shrink-0
+        `}
+      >
+        {/* Sidebar Header */}
+        <div className="flex items-center justify-between p-4 border-b border-neutral-800">
+          {!isCollapsed && (
+            <div className="flex items-center gap-2">
+              <h2 className="font-display text-lg text-neutral-200 tracking-wider">Filters</h2>
+              {activeFilterCount > 0 && (
+                <span className="flex items-center justify-center w-5 h-5 bg-soul-accent/20 text-soul-accent rounded-full text-xs font-display">
+                  {activeFilterCount}
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Collapse Toggle (Desktop) */}
+          <button
+            onClick={toggleCollapse}
+            className="hidden lg:flex items-center justify-center w-8 h-8 text-neutral-500 hover:text-neutral-300 transition-colors"
+            aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            <svg
+              className={`w-5 h-5 transition-transform ${isCollapsed ? 'rotate-180' : ''}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+            </svg>
+          </button>
+
+          {/* Close Button (Mobile) */}
+          <button
+            onClick={toggleMobile}
+            className="lg:hidden flex items-center justify-center w-8 h-8 text-neutral-500 hover:text-neutral-300 transition-colors"
+            aria-label="Close filters"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Scrollable Content */}
+        {!isCollapsed && (
+          <div className="flex flex-col overflow-y-auto max-h-[calc(100vh-400px)] lg:max-h-none">
+            {/* Results Count */}
+            <div className="px-4 py-3 border-b border-neutral-800/50">
+              <p className="text-sm text-neutral-500 font-display">
+                {totalCount.toLocaleString()} characters
+              </p>
+            </div>
+
+            {/* Search Input */}
+            <div className="p-4 border-b border-neutral-800/50">
+              <label className="block text-xs font-display text-neutral-500 mb-2 tracking-wider">
+                SEARCH
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                  <svg
+                    className="w-4 h-4 text-neutral-500"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+                <input
+                  type="text"
+                  value={searchValue}
+                  onChange={(e) => onSearchChange(e.target.value)}
+                  placeholder="Name or token ID..."
+                  className="w-full bg-black/40 border border-neutral-800 rounded-sm py-2 pl-10 pr-8 text-sm font-eskapade text-neutral-200 placeholder-neutral-600 focus:outline-none focus:border-soul-accent/50 focus:ring-1 focus:ring-soul-accent/30 transition-all"
+                />
+                {searchValue && (
+                  <button
+                    onClick={onClearSearch}
+                    className="absolute inset-y-0 right-0 flex items-center pr-2 text-neutral-500 hover:text-neutral-300 transition-colors"
+                    aria-label="Clear search"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Category Tabs */}
+            <div className="p-4 border-b border-neutral-800/50">
+              <label className="block text-xs font-display text-neutral-500 mb-2 tracking-wider">
+                CATEGORY
+              </label>
+              <Tabs
+                items={TAB_ITEMS}
+                activeId={currentTab}
+                onChange={(id) => onTabChange(id as CharacterFilterTab)}
+                variant="vertical"
+              />
+            </div>
+
+            {/* Sort Toggle */}
+            <div className="p-4 border-b border-neutral-800/50">
+              <label className="block text-xs font-display text-neutral-500 mb-2 tracking-wider">
+                SORT ORDER
+              </label>
+              <button
+                onClick={() => onSortChange(currentSort === 'asc' ? 'desc' : 'asc')}
+                className="flex items-center justify-between w-full px-3 py-2 bg-black/40 border border-neutral-800 rounded-sm text-neutral-400 hover:text-soul-accent hover:border-soul-accent/50 transition-colors font-display text-sm"
+              >
+                <span>Token ID</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-neutral-500">
+                    {currentSort === 'asc' ? 'Low → High' : 'High → Low'}
+                  </span>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    {currentSort === 'asc' ? (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                    ) : (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    )}
+                  </svg>
+                </div>
+              </button>
+            </div>
+
+            {/* Trait Filters Section */}
+            <div className="p-4 border-b border-neutral-800/50">
+              <label className="block text-xs font-display text-neutral-500 mb-3 tracking-wider">
+                TRAIT FILTERS
+              </label>
+
+              <div className="space-y-3">
+                {/* Has Sheet Toggle */}
+                <SheetToggle
+                  checked={hasSheetFilter}
+                  onChange={onHasSheetChange}
+                />
+
+                {/* Origin Dropdown */}
+                <OriginDropdown
+                  value={originFilter}
+                  options={availableOrigins}
+                  onChange={onOriginChange}
+                  isLoading={originsLoading}
+                  className="w-full"
+                />
+
+                {/* Alignment Dropdown */}
+                <AlignmentDropdown
+                  value={alignmentFilter}
+                  options={availableAlignments}
+                  onChange={onAlignmentChange}
+                  isLoading={alignmentsLoading}
+                  className="w-full"
+                />
+              </div>
+            </div>
+
+            {/* Equipment Filters Section */}
+            <div className="p-4 border-b border-neutral-800/50">
+              <label className="block text-xs font-display text-neutral-500 mb-3 tracking-wider">
+                EQUIPMENT FILTERS
+              </label>
+
+              <div className="space-y-3">
+                <TraitDropdown
+                  label="Armor"
+                  value={armorFilter}
+                  options={availableArmor}
+                  onChange={onArmorChange}
+                  isLoading={armorLoading}
+                  className="w-full"
+                />
+
+                <TraitDropdown
+                  label="Back"
+                  value={backFilter}
+                  options={availableBack}
+                  onChange={onBackChange}
+                  isLoading={backLoading}
+                  className="w-full"
+                />
+
+                <TraitDropdown
+                  label="Mask"
+                  value={maskFilter}
+                  options={availableMask}
+                  onChange={onMaskChange}
+                  isLoading={maskLoading}
+                  className="w-full"
+                />
+              </div>
+            </div>
+
+            {/* Clear All Filters */}
+            {activeFilterCount > 0 && (
+              <div className="p-4">
+                <button
+                  onClick={onClearAllFilters}
+                  className="w-full px-4 py-2 border border-neutral-700 text-neutral-400 hover:text-soul-accent hover:border-soul-accent/50 transition-colors font-display text-sm tracking-wider rounded-sm"
+                >
+                  Clear All Filters ({activeFilterCount})
+                </button>
+              </div>
+            )}
+
+            {/* Spacer for mobile safe area */}
+            <div className="h-20 lg:h-4 flex-shrink-0" />
+          </div>
+        )}
+
+        {/* Collapsed State Icons */}
+        {isCollapsed && (
+          <div className="flex flex-col items-center gap-4 py-4">
+            {/* Search Icon */}
+            <button
+              onClick={toggleCollapse}
+              className="p-2 text-neutral-500 hover:text-neutral-300 transition-colors"
+              title="Search"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </button>
+
+            {/* Filter Icon */}
+            <button
+              onClick={toggleCollapse}
+              className="p-2 text-neutral-500 hover:text-neutral-300 transition-colors relative"
+              title="Filters"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+              </svg>
+              {activeFilterCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex items-center justify-center w-4 h-4 bg-soul-accent text-black rounded-full text-[10px] font-bold">
+                  {activeFilterCount}
+                </span>
+              )}
+            </button>
+
+            {/* Sort Icon */}
+            <button
+              onClick={toggleCollapse}
+              className="p-2 text-neutral-500 hover:text-neutral-300 transition-colors"
+              title="Sort"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
+              </svg>
+            </button>
+          </div>
+        )}
+      </aside>
+    </>
+  )
+}

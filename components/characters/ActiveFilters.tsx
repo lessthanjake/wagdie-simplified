@@ -9,15 +9,20 @@
 import React from 'react'
 import type { CharacterFilterTab } from '@/types/character'
 
+type FilterType = 'hasSheet' | 'origin' | 'alignment' | 'armor' | 'back' | 'mask' | 'search'
+
 interface ActiveFiltersProps {
   filters: {
     hasSheet: boolean
     origin: string | null
     alignment: string | null
+    armor?: string | null
+    back?: string | null
+    mask?: string | null
     search: string | null
     tab: CharacterFilterTab
   }
-  onRemoveFilter: (filterType: 'hasSheet' | 'origin' | 'alignment' | 'search') => void
+  onRemoveFilter: (filterType: FilterType) => void
   onClearAll: () => void
 }
 
@@ -30,6 +35,9 @@ export function ActiveFilters({
     filters.hasSheet,
     filters.origin !== null,
     filters.alignment !== null,
+    filters.armor !== null,
+    filters.back !== null,
+    filters.mask !== null,
     filters.search !== null && filters.search.length > 0
   ].filter(Boolean).length
 
@@ -62,6 +70,28 @@ export function ActiveFilters({
         <FilterBadge
           label={`Alignment: ${filters.alignment}`}
           onRemove={() => onRemoveFilter('alignment')}
+        />
+      )}
+
+      {/* Equipment Filter Badges */}
+      {filters.armor && (
+        <FilterBadge
+          label={`Armor: ${filters.armor}`}
+          onRemove={() => onRemoveFilter('armor')}
+        />
+      )}
+
+      {filters.back && (
+        <FilterBadge
+          label={`Back: ${filters.back}`}
+          onRemove={() => onRemoveFilter('back')}
+        />
+      )}
+
+      {filters.mask && (
+        <FilterBadge
+          label={`Mask: ${filters.mask}`}
+          onRemove={() => onRemoveFilter('mask')}
         />
       )}
 

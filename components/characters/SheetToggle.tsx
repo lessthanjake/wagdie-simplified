@@ -28,6 +28,7 @@ export function SheetToggle({
         ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
         ${className}
       `}
+      title="Show only characters with custom name, stats, level, or backstory"
     >
       <span className="relative">
         <input

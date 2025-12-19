@@ -8,10 +8,11 @@
 import React from 'react';
 import { Tabs } from '@/components/ui'
 import type { TabItem } from '@/components/ui'
-import type { CharacterFilterTab, SortOrder, OriginCount, AlignmentCount } from '@/types/character'
+import type { CharacterFilterTab, SortOrder, OriginCount, AlignmentCount, TraitCount } from '@/types/character'
 import { SheetToggle } from './SheetToggle'
 import { OriginDropdown } from './OriginDropdown'
 import { AlignmentDropdown } from './AlignmentDropdown'
+import { TraitDropdown } from './TraitDropdown'
 
 interface TokenFilterBarProps {
   currentTab: CharacterFilterTab
@@ -19,19 +20,32 @@ interface TokenFilterBarProps {
   onTabChange: (tab: CharacterFilterTab) => void
   onSortChange: (sort: SortOrder) => void
   className?: string
-  // NEW: Sheet filter props
+  // Sheet filter props
   hasSheetFilter?: boolean
   onHasSheetChange?: (hasSheet: boolean) => void
-  // NEW: Origin filter props
+  // Origin filter props
   originFilter?: string | null
   availableOrigins?: OriginCount[]
   onOriginChange?: (origin: string | null) => void
   originsLoading?: boolean
-  // NEW: Alignment filter props
+  // Alignment filter props
   alignmentFilter?: string | null
   availableAlignments?: AlignmentCount[]
   onAlignmentChange?: (alignment: string | null) => void
   alignmentsLoading?: boolean
+  // Equipment filter props
+  armorFilter?: string | null
+  availableArmor?: TraitCount[]
+  onArmorChange?: (armor: string | null) => void
+  armorLoading?: boolean
+  backFilter?: string | null
+  availableBack?: TraitCount[]
+  onBackChange?: (back: string | null) => void
+  backLoading?: boolean
+  maskFilter?: string | null
+  availableMask?: TraitCount[]
+  onMaskChange?: (mask: string | null) => void
+  maskLoading?: boolean
 }
 
 const TAB_ITEMS: TabItem[] = [
@@ -57,7 +71,19 @@ export function TokenFilterBar({
   alignmentFilter = null,
   availableAlignments = [],
   onAlignmentChange,
-  alignmentsLoading = false
+  alignmentsLoading = false,
+  armorFilter = null,
+  availableArmor = [],
+  onArmorChange,
+  armorLoading = false,
+  backFilter = null,
+  availableBack = [],
+  onBackChange,
+  backLoading = false,
+  maskFilter = null,
+  availableMask = [],
+  onMaskChange,
+  maskLoading = false
 }: TokenFilterBarProps) {
   return (
     <div className={`flex flex-col gap-4 ${className}`}>
@@ -70,7 +96,7 @@ export function TokenFilterBar({
 
       {/* Additional Filters Row */}
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex flex-wrap items-center gap-4">
+        <div className="flex flex-wrap items-center gap-3">
           {/* Sheet Filter Toggle */}
           {onHasSheetChange && (
             <SheetToggle
@@ -96,6 +122,37 @@ export function TokenFilterBar({
               options={availableAlignments}
               onChange={onAlignmentChange}
               isLoading={alignmentsLoading}
+            />
+          )}
+
+          {/* Equipment Filter Dropdowns */}
+          {onArmorChange && (
+            <TraitDropdown
+              label="Armor"
+              value={armorFilter}
+              options={availableArmor}
+              onChange={onArmorChange}
+              isLoading={armorLoading}
+            />
+          )}
+
+          {onBackChange && (
+            <TraitDropdown
+              label="Back"
+              value={backFilter}
+              options={availableBack}
+              onChange={onBackChange}
+              isLoading={backLoading}
+            />
+          )}
+
+          {onMaskChange && (
+            <TraitDropdown
+              label="Mask"
+              value={maskFilter}
+              options={availableMask}
+              onChange={onMaskChange}
+              isLoading={maskLoading}
             />
           )}
         </div>

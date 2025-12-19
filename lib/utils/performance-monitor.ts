@@ -5,6 +5,9 @@
  * the map maintains 60fps with 50+ markers.
  */
 
+// Debug flag - set to true for performance logging
+const DEBUG_PERFORMANCE = process.env.NODE_ENV === 'development' && process.env.DEBUG_PERFORMANCE === 'true';
+
 export interface PerformanceMetrics {
   renderTime: number;
   fps: number;
@@ -142,7 +145,7 @@ class PerformanceMonitor {
       );
     }
 
-    if (markerCount > this.thresholds.maxMarkerCount) {
+    if (markerCount > this.thresholds.maxMarkerCount && DEBUG_PERFORMANCE) {
       console.log(
         `[Performance] High marker count: ${markerCount} (threshold: ${this.thresholds.maxMarkerCount})`
       );
@@ -172,7 +175,7 @@ class PerformanceMonitor {
   setMarkerCount(count: number): void {
     // This would update an internal state
     // For now, we just log it
-    if (count > this.thresholds.maxMarkerCount) {
+    if (count > this.thresholds.maxMarkerCount && DEBUG_PERFORMANCE) {
       console.log(`[Performance] Rendering ${count} markers`);
     }
   }

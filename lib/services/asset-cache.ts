@@ -9,6 +9,9 @@
  * - Cache performance monitoring
  */
 
+// Debug flag - set to true for development logging
+const DEBUG_ASSET_CACHE = process.env.NODE_ENV === 'development' && process.env.DEBUG_ASSET_CACHE === 'true';
+
 export interface CacheEntry<T = any> {
   data: T;
   timestamp: number;
@@ -247,7 +250,7 @@ export class AssetCache {
           ttl: this.config.criticalAssetTTL,
         });
 
-        console.log(`[AssetCache] Preloaded critical asset: ${url}`);
+        if (DEBUG_ASSET_CACHE) console.log(`[AssetCache] Preloaded critical asset: ${url}`);
       } catch (error) {
         console.warn(`[AssetCache] Failed to preload critical asset: ${url}`, error);
       }
@@ -430,7 +433,7 @@ export class AssetCache {
       }
     }
 
-    if (keysToDelete.length > 0) {
+    if (keysToDelete.length > 0 && DEBUG_ASSET_CACHE) {
       console.log(`[AssetCache] Cleaned up ${keysToDelete.length} expired entries`);
     }
   }
@@ -453,7 +456,7 @@ export class AssetCache {
       this.stats.evictions++;
     }
 
-    console.log(`[AssetCache] Memory pressure: evicted ${evictCount} entries`);
+    if (DEBUG_ASSET_CACHE) console.log(`[AssetCache] Memory pressure: evicted ${evictCount} entries`);
   }
 
   /**
@@ -505,7 +508,7 @@ export class AssetCache {
         }
       }
 
-      console.log(`[AssetCache] Loaded ${cacheKeys.length} entries from persistent cache`);
+      if (DEBUG_ASSET_CACHE) console.log(`[AssetCache] Loaded ${cacheKeys.length} entries from persistent cache`);
     } catch (error) {
       console.warn('[AssetCache] Failed to load persisted cache:', error);
     }

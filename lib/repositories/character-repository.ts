@@ -6,7 +6,7 @@
 
 import { supabase } from '../supabase'
 import { CHARACTERS_TABLE } from '@/lib/db/tables'
-import type { Character, CharacterFilters, CharactersResponse, CharacterConcord, Concord, EditableCharacterFields, OriginCount, OriginsResponse, AlignmentCount, AlignmentsResponse } from '@/types/character'
+import type { Character, CharacterFilters, CharactersResponse, CharacterConcord, Concord, EditableCharacterFields, OriginCount, OriginsResponse, AlignmentCount, AlignmentsResponse, TraitCount, TraitCountsResponse } from '@/types/character'
 import type { NormalizedLocationMetadata } from '@/lib/domain/location/metadata-types'
 import { normalizeLocationMetadata } from '@/lib/domain/location/metadata'
 
@@ -54,6 +54,7 @@ export interface ICharacterRepository {
   findConcords(tokenId: number): Promise<Array<CharacterConcord & { concord: Concord }>>
   getOrigins(): Promise<OriginsResponse>
   getAlignments(): Promise<AlignmentsResponse>
+  getTraitCounts(traitType: string): Promise<TraitCountsResponse>
 }
 
 /**
@@ -95,9 +96,15 @@ export class CharacterRepository implements ICharacterRepository {
       }
     }
 
-    // NEW: Has sheet filter - characters with custom name, stats, or background
+    // Has sheet filter - characters with custom data (name, stats, level, or background)
+    // A character "has sheet" if any player-edited field is populated
     if (filters.hasSheet) {
-      query = query.or('name.not.is.null,str.not.is.null,background_story.not.is.null')
+      query = query.or(
+        'name.not.is.null,' +           // Custom name
+        'str.not.is.null,' +            // Core stats defined
+        'level.gt.1,' +                 // Level > 1 (default is 1)
+        'background_story.not.is.null'  // Custom backstory
+      )
     }
 
     // NEW: Origin filter - filter by Body trait in metadata JSONB
@@ -107,10 +114,27 @@ export class CharacterRepository implements ICharacterRepository {
       })
     }
 
-    // NEW: Alignment filter - filter by Alignment trait in metadata JSONB
+    // Alignment filter - filter by Alignment trait in metadata JSONB
     if (filters.alignment) {
       query = query.contains('metadata', {
         attributes: [{ trait_type: 'Alignment', value: filters.alignment }]
+      })
+    }
+
+    // Equipment filters - filter by Armor, Back, Mask traits in metadata JSONB
+    if (filters.armor) {
+      query = query.contains('metadata', {
+        attributes: [{ trait_type: 'Armor', value: filters.armor }]
+      })
+    }
+    if (filters.back) {
+      query = query.contains('metadata', {
+        attributes: [{ trait_type: 'Back', value: filters.back }]
+      })
+    }
+    if (filters.mask) {
+      query = query.contains('metadata', {
+        attributes: [{ trait_type: 'Mask', value: filters.mask }]
       })
     }
 
@@ -165,8 +189,6 @@ export class CharacterRepository implements ICharacterRepository {
     tokenId: number,
     updates: Partial<Pick<Character, EditableCharacterFields>>
   ): Promise<Character | null> {
-    console.log(`[Repository] Updating character ${tokenId} with:`, JSON.stringify(updates, null, 2))
-
     const { data, error } = await (supabase
       .from(CHARACTERS_TABLE) as any)
       .update(updates)
@@ -175,14 +197,10 @@ export class CharacterRepository implements ICharacterRepository {
       .single()
 
     if (error) {
-      console.error(`[Repository] Error updating character ${tokenId}:`, error)
-      console.error(`[Repository] Error code:`, error.code)
-      console.error(`[Repository] Error details:`, error.details)
-      console.error(`[Repository] Error hint:`, error.hint)
+      console.error(`[Repository] Error updating character ${tokenId}:`, error.message)
       throw new Error(`Failed to update character: ${error.message}`)
     }
 
-    console.log(`[Repository] Successfully updated character ${tokenId}`)
     return data as Character
   }
 
@@ -293,10 +311,6 @@ export class CharacterRepository implements ICharacterRepository {
       }
     }
 
-    // Log available trait types for debugging
-    console.log('[getAlignments] Available trait types in metadata:', Array.from(allTraitTypes))
-    console.log('[getAlignments] Found alignments:', alignmentCounts.size)
-
     // Convert to array and sort by alignment name
     const alignments: AlignmentCount[] = Array.from(alignmentCounts.entries())
       .map(([alignment, count]) => ({ alignment, count }))
@@ -304,6 +318,51 @@ export class CharacterRepository implements ICharacterRepository {
 
     return {
       alignments,
+      totalCharacters: count || 0
+    }
+  }
+
+  /**
+   * Get counts for any trait type in metadata JSONB
+   * Generic method to support Armor, Back, Mask, and other trait filters
+   */
+  async getTraitCounts(traitType: string): Promise<TraitCountsResponse> {
+    // Fetch all metadata to extract the specified trait
+    const { data, error, count } = await supabase
+      .from(CHARACTERS_TABLE)
+      .select('metadata', { count: 'exact' })
+
+    if (error) {
+      throw new Error(`Failed to fetch ${traitType} traits: ${error.message}`)
+    }
+
+    // Extract trait values from each character's metadata
+    const traitCounts = new Map<string, number>()
+
+    // Type the data since Supabase may not infer correctly for JSONB selection
+    const rows = (data || []) as Array<{ metadata: { attributes?: Array<{ trait_type: string; value: string }> } | null }>
+
+    for (const row of rows) {
+      const metadata = row.metadata
+      if (metadata?.attributes && Array.isArray(metadata.attributes)) {
+        const traitAttr = metadata.attributes.find(
+          (attr: { trait_type: string; value: string }) => attr.trait_type === traitType
+        )
+        if (traitAttr?.value) {
+          const value = String(traitAttr.value)
+          traitCounts.set(value, (traitCounts.get(value) || 0) + 1)
+        }
+      }
+    }
+
+    // Convert to array and sort by count descending
+    const traits: TraitCount[] = Array.from(traitCounts.entries())
+      .map(([value, count]) => ({ value, count }))
+      .sort((a, b) => b.count - a.count)
+
+    return {
+      traitType,
+      traits,
       totalCharacters: count || 0
     }
   }
@@ -329,16 +388,12 @@ export class CharacterRepository implements ICharacterRepository {
       return []
     }
 
-    console.log('[getStakedCharacters] Characters with location_id:', characters.length)
-
     // Step 2: Get unique location IDs
     const locationIds = [...new Set(
       characters
         .map(c => c.location_id)
         .filter((id): id is string => typeof id === 'string' && id.length > 0)
     )]
-
-    console.log('[getStakedCharacters] Unique location IDs:', locationIds.length)
 
     // Step 3: Fetch locations for those IDs
     const { data: locationsData, error: locError } = await supabase
@@ -354,7 +409,6 @@ export class CharacterRepository implements ICharacterRepository {
 
     // Cast to proper type since Supabase doesn't infer it
     const locations = (locationsData || []) as Array<{ id: string; name: string; metadata: unknown }>
-    console.log('[getStakedCharacters] Locations fetched:', locations.length)
 
     // Step 4: Create location lookup map
     const locationMap = new Map<string, { id: string; name: string; metadata: unknown }>()
@@ -377,13 +431,6 @@ export class CharacterRepository implements ICharacterRepository {
         },
       } as CharacterWithLocation
     })
-
-    // Debug: Log first result's normalized metadata
-    const withLocation = result.filter(r => r.location)
-    console.log('[getStakedCharacters] Results with valid location:', withLocation.length)
-    if (withLocation.length > 0 && withLocation[0].location) {
-      console.log('[getStakedCharacters] First location metadata:', JSON.stringify(withLocation[0].location.metadata, null, 2))
-    }
 
     return result
   }

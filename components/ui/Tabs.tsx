@@ -20,6 +20,8 @@ interface TabsProps {
   id?: string;
   /** Orientation affects arrow key behavior */
   orientation?: 'horizontal' | 'vertical';
+  /** Visual variant: default for page tabs, vertical for sidebar compact */
+  variant?: 'default' | 'vertical';
 }
 
 let tabsIdCounter = 0;
@@ -31,7 +33,8 @@ export const Tabs = React.memo<TabsProps>(({
   onChange,
   className = '',
   id,
-  orientation = 'horizontal'
+  orientation = 'horizontal',
+  variant = 'default'
 }) => {
   const [internalActiveId, setInternalActiveId] = useState(defaultActiveId || items[0]?.id);
   const tabsId = useRef(id || `tabs-${++tabsIdCounter}`);
@@ -101,15 +104,52 @@ export const Tabs = React.memo<TabsProps>(({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const _activeItem = items.find(item => item.id === activeId);
 
+  // Determine effective orientation based on variant
+  const effectiveOrientation = variant === 'vertical' ? 'vertical' : orientation;
+
+  // Container classes based on variant
+  const tabListClasses = variant === 'vertical'
+    ? 'flex flex-col gap-1 w-full'
+    : `flex flex-wrap justify-center gap-2 md:gap-4 border-b border-neutral-800 pb-1 mb-8 ${
+        orientation === 'vertical' ? 'flex-col items-start border-b-0 border-r' : ''
+      }`;
+
+  // Button classes based on variant
+  const getButtonClasses = (isActive: boolean, isDisabled: boolean) => {
+    if (variant === 'vertical') {
+      return `
+        flex items-center gap-2 px-3 py-2 w-full
+        font-display text-sm tracking-wider rounded-sm
+        transition-all duration-200
+        focus:outline-none focus-visible:ring-1 focus-visible:ring-soul-accent/50
+        ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}
+        ${isActive
+          ? 'bg-soul-accent/10 text-soul-accent border-l-2 border-soul-accent'
+          : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/50 border-l-2 border-transparent'
+        }
+      `;
+    }
+    return `
+      flex items-center gap-2 px-4 md:px-6 py-3
+      font-display text-xl
+      transition-all duration-300 border-b-2
+      group relative overflow-hidden
+      focus:outline-none focus-visible:ring-2 focus-visible:ring-soul-accent/50
+      ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}
+      ${isActive
+        ? 'border-soul-accent text-soul-accent drop-shadow-[0_0_8px_rgba(200,170,110,0.4)]'
+        : 'border-transparent text-neutral-600 hover:text-neutral-400 hover:border-neutral-800'
+      }
+    `;
+  };
+
   return (
     <div className={`w-full ${className}`}>
       {/* Tab Navigation */}
       <div
         role="tablist"
-        aria-orientation={orientation}
-        className={`flex flex-wrap justify-center gap-2 md:gap-4 border-b border-neutral-800 pb-1 mb-8 ${
-          orientation === 'vertical' ? 'flex-col items-start border-b-0 border-r' : ''
-        }`}
+        aria-orientation={effectiveOrientation}
+        className={tabListClasses}
       >
         {items.map((item) => {
           const isActive = activeId === item.id;
@@ -128,27 +168,18 @@ export const Tabs = React.memo<TabsProps>(({
               disabled={isDisabled}
               onClick={() => !isDisabled && handleTabClick(item.id)}
               onKeyDown={(e) => !isDisabled && handleKeyDown(e, item.id)}
-              className={`
-                flex items-center gap-2 px-4 md:px-6 py-3
-                font-display  text-xl
-                transition-all duration-300 border-b-2
-                group relative overflow-hidden
-                focus:outline-none focus-visible:ring-2 focus-visible:ring-soul-accent/50
-                ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}
-                ${isActive
-                  ? 'border-soul-accent text-soul-accent drop-shadow-[0_0_8px_rgba(200,170,110,0.4)]'
-                  : 'border-transparent text-neutral-600 hover:text-neutral-400 hover:border-neutral-800'
-                }
-              `}
+              className={getButtonClasses(isActive, isDisabled ?? false)}
             >
-              {/* Hover Glow Background */}
-              <div
-                aria-hidden="true"
-                className={`absolute inset-0 bg-soul-accent/5 translate-y-full transition-transform duration-300 ${isActive ? 'translate-y-0' : 'group-hover:translate-y-0'}`}
-              />
+              {/* Hover Glow Background - only for default variant */}
+              {variant === 'default' && (
+                <div
+                  aria-hidden="true"
+                  className={`absolute inset-0 bg-soul-accent/5 translate-y-full transition-transform duration-300 ${isActive ? 'translate-y-0' : 'group-hover:translate-y-0'}`}
+                />
+              )}
 
-              <span className="relative z-10 flex items-center gap-2">
-                {item.icon && React.cloneElement(item.icon, { size: 16 })}
+              <span className={`${variant === 'default' ? 'relative z-10' : ''} flex items-center gap-2`}>
+                {item.icon && React.cloneElement(item.icon, { size: variant === 'vertical' ? 14 : 16 })}
                 {item.label}
               </span>
             </button>

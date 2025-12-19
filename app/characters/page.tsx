@@ -6,16 +6,17 @@
 
 'use client'
 
-import { useCallback, useState, useEffect, Suspense, useMemo } from 'react'
+import { useCallback, useState, useEffect, Suspense, useMemo, useRef } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { BannerHeader } from '@/components/shared/BannerHeader'
-import { TokenFilterBar } from '@/components/characters/TokenFilterBar'
+import { FilterSidebar } from '@/components/characters/FilterSidebar'
 import { CharacterCard } from '@/components/characters/CharacterCard'
 import { ActiveFilters } from '@/components/characters/ActiveFilters'
 import { Alert, Spinner, Pagination, Empty } from '@/components/ui'
 import { useCharacters } from '@/hooks/useCharacters'
 import { useOrigins } from '@/hooks/useOrigins'
 import { useAlignments } from '@/hooks/useAlignments'
+import { useArmorTraits, useBackTraits, useMaskTraits } from '@/hooks/useTraitCounts'
 import { useWallet } from '@/hooks/useWallet'
 import type { CharacterFilterTab, SortOrder } from '@/types/character'
 
@@ -31,17 +32,65 @@ function CharactersPageContent() {
   const sort = (searchParams.get('sort') || 'desc') as SortOrder
   const page = parseInt(searchParams.get('page') || '1', 10)
   const searchQuery = searchParams.get('search') || ''
-  // NEW: Parse hasSheet, origin, and alignment from URL
+  // Parse trait filters from URL
   const hasSheet = searchParams.get('hasSheet') === 'true'
   const origin = searchParams.get('origin') || null
   const alignment = searchParams.get('alignment') || null
+  // Equipment filters
+  const armor = searchParams.get('armor') || null
+  const back = searchParams.get('back') || null
+  const mask = searchParams.get('mask') || null
 
   // Local search input state (for debouncing)
   const [searchInput, setSearchInput] = useState(searchQuery)
 
-  // Fetch available origins and alignments for dropdowns
+  // Fetch available trait options for dropdowns
   const { origins, isLoading: originsLoading } = useOrigins()
   const { alignments, isLoading: alignmentsLoading } = useAlignments()
+  const { traits: armorTraits, isLoading: armorLoading } = useArmorTraits()
+  const { traits: backTraits, isLoading: backLoading } = useBackTraits()
+  const { traits: maskTraits, isLoading: maskLoading } = useMaskTraits()
+
+  // Update URL when filters or page change
+  interface UpdateURLParams {
+    tab: CharacterFilterTab
+    sort: SortOrder
+    page?: number
+    search?: string
+    hasSheet?: boolean
+    origin?: string | null
+    alignment?: string | null
+    armor?: string | null
+    back?: string | null
+    mask?: string | null
+  }
+
+  const updateURL = useCallback((params: UpdateURLParams) => {
+    const urlParams = new URLSearchParams()
+    if (params.tab !== 'all') urlParams.set('tab', params.tab)
+    if (params.sort !== 'desc') urlParams.set('sort', params.sort)
+    if (params.page && params.page > 1) urlParams.set('page', params.page.toString())
+    if (params.search?.trim()) urlParams.set('search', params.search.trim())
+    // Trait filters
+    if (params.hasSheet) urlParams.set('hasSheet', 'true')
+    if (params.origin) urlParams.set('origin', params.origin)
+    if (params.alignment) urlParams.set('alignment', params.alignment)
+    // Equipment filters
+    if (params.armor) urlParams.set('armor', params.armor)
+    if (params.back) urlParams.set('back', params.back)
+    if (params.mask) urlParams.set('mask', params.mask)
+
+    const queryString = urlParams.toString()
+    router.push(`/characters${queryString ? `?${queryString}` : ''}`)
+  }, [router])
+
+  // Ref to store latest filter values for debounced search
+  // This prevents the stale closure bug where the debounced effect
+  // could use outdated filter values when it fires
+  const latestFiltersRef = useRef({ tab, sort, hasSheet, origin, alignment, armor, back, mask, searchQuery })
+  useEffect(() => {
+    latestFiltersRef.current = { tab, sort, hasSheet, origin, alignment, armor, back, mask, searchQuery }
+  }, [tab, sort, hasSheet, origin, alignment, armor, back, mask, searchQuery])
 
   // Sync search input with URL on mount/change
   useEffect(() => {
@@ -49,14 +98,27 @@ function CharactersPageContent() {
   }, [searchQuery])
 
   // Debounced search - update URL after user stops typing
+  // Uses ref to always access current filter values, avoiding stale closure issues
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (searchInput !== searchQuery) {
-        updateURL({ tab, sort, page: 1, search: searchInput, hasSheet, origin, alignment })
+      const current = latestFiltersRef.current
+      if (searchInput !== current.searchQuery) {
+        updateURL({
+          tab: current.tab,
+          sort: current.sort,
+          page: 1,
+          search: searchInput,
+          hasSheet: current.hasSheet,
+          origin: current.origin,
+          alignment: current.alignment,
+          armor: current.armor,
+          back: current.back,
+          mask: current.mask
+        })
       }
     }, 400)
     return () => clearTimeout(timer)
-  }, [searchInput]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [searchInput, updateURL])
 
   // Fetch characters using custom hook with React Query
   const {
@@ -75,96 +137,95 @@ function CharactersPageContent() {
     hasSheet: hasSheet || undefined,
     origin: origin || undefined,
     alignment: alignment || undefined,
+    armor: armor || undefined,
+    back: back || undefined,
+    mask: mask || undefined,
   })
-
-  // Update URL when filters or page change
-  interface UpdateURLParams {
-    tab: CharacterFilterTab
-    sort: SortOrder
-    page?: number
-    search?: string
-    hasSheet?: boolean
-    origin?: string | null
-    alignment?: string | null
-  }
-
-  const updateURL = useCallback((params: UpdateURLParams) => {
-    const urlParams = new URLSearchParams()
-    if (params.tab !== 'all') urlParams.set('tab', params.tab)
-    if (params.sort !== 'desc') urlParams.set('sort', params.sort)
-    if (params.page && params.page > 1) urlParams.set('page', params.page.toString())
-    if (params.search?.trim()) urlParams.set('search', params.search.trim())
-    // NEW: Add hasSheet, origin, and alignment to URL
-    if (params.hasSheet) urlParams.set('hasSheet', 'true')
-    if (params.origin) urlParams.set('origin', params.origin)
-    if (params.alignment) urlParams.set('alignment', params.alignment)
-
-    const queryString = urlParams.toString()
-    router.push(`/characters${queryString ? `?${queryString}` : ''}`)
-  }, [router])
 
   // Compute whether any filters are active (beyond defaults)
   const hasActiveFilters = useMemo(() => {
-    return hasSheet || origin !== null || alignment !== null || searchQuery.length > 0
-  }, [hasSheet, origin, alignment, searchQuery])
+    return hasSheet || origin !== null || alignment !== null ||
+      armor !== null || back !== null || mask !== null ||
+      searchQuery.length > 0
+  }, [hasSheet, origin, alignment, armor, back, mask, searchQuery])
 
   const handleTabChange = (newTab: CharacterFilterTab) => {
     if (newTab === tab) return
-    updateURL({ tab: newTab, sort, page: 1, search: searchQuery, hasSheet, origin, alignment }) // Reset to page 1 on filter change
+    updateURL({ tab: newTab, sort, page: 1, search: searchQuery, hasSheet, origin, alignment, armor, back, mask })
   }
 
   const handleSortChange = (newSort: SortOrder) => {
     if (newSort === sort) return
-    updateURL({ tab, sort: newSort, page: 1, search: searchQuery, hasSheet, origin, alignment }) // Reset to page 1 on sort change
+    updateURL({ tab, sort: newSort, page: 1, search: searchQuery, hasSheet, origin, alignment, armor, back, mask })
   }
 
   const handlePageChange = (newPage: number) => {
     if (newPage === page) return
-    updateURL({ tab, sort, page: newPage, search: searchQuery, hasSheet, origin, alignment })
+    updateURL({ tab, sort, page: newPage, search: searchQuery, hasSheet, origin, alignment, armor, back, mask })
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const handleClearSearch = () => {
     setSearchInput('')
-    updateURL({ tab, sort, page: 1, search: '', hasSheet, origin, alignment })
+    updateURL({ tab, sort, page: 1, search: '', hasSheet, origin, alignment, armor, back, mask })
   }
 
-  // NEW: Handler for hasSheet filter
   const handleHasSheetChange = (newHasSheet: boolean) => {
-    updateURL({ tab, sort, page: 1, search: searchQuery, hasSheet: newHasSheet, origin, alignment })
+    updateURL({ tab, sort, page: 1, search: searchQuery, hasSheet: newHasSheet, origin, alignment, armor, back, mask })
   }
 
-  // NEW: Handler for origin filter
   const handleOriginChange = (newOrigin: string | null) => {
-    updateURL({ tab, sort, page: 1, search: searchQuery, hasSheet, origin: newOrigin, alignment })
+    updateURL({ tab, sort, page: 1, search: searchQuery, hasSheet, origin: newOrigin, alignment, armor, back, mask })
   }
 
-  // NEW: Handler for alignment filter
   const handleAlignmentChange = (newAlignment: string | null) => {
-    updateURL({ tab, sort, page: 1, search: searchQuery, hasSheet, origin, alignment: newAlignment })
+    updateURL({ tab, sort, page: 1, search: searchQuery, hasSheet, origin, alignment: newAlignment, armor, back, mask })
   }
 
-  // NEW: Handler for clearing all filters
+  // Equipment filter handlers
+  const handleArmorChange = (newArmor: string | null) => {
+    updateURL({ tab, sort, page: 1, search: searchQuery, hasSheet, origin, alignment, armor: newArmor, back, mask })
+  }
+
+  const handleBackChange = (newBack: string | null) => {
+    updateURL({ tab, sort, page: 1, search: searchQuery, hasSheet, origin, alignment, armor, back: newBack, mask })
+  }
+
+  const handleMaskChange = (newMask: string | null) => {
+    updateURL({ tab, sort, page: 1, search: searchQuery, hasSheet, origin, alignment, armor, back, mask: newMask })
+  }
+
   const handleClearAllFilters = () => {
     setSearchInput('')
-    updateURL({ tab: 'all', sort: 'desc', page: 1, search: '', hasSheet: false, origin: null, alignment: null })
+    updateURL({ tab: 'all', sort: 'desc', page: 1, search: '', hasSheet: false, origin: null, alignment: null, armor: null, back: null, mask: null })
   }
 
-  // NEW: Handler for removing individual filter
-  const handleRemoveFilter = (filterType: 'hasSheet' | 'origin' | 'alignment' | 'search') => {
+  type FilterType = 'hasSheet' | 'origin' | 'alignment' | 'armor' | 'back' | 'mask' | 'search'
+
+  const handleRemoveFilter = (filterType: FilterType) => {
+    const baseParams = { tab, sort, page: 1, search: searchQuery, hasSheet, origin, alignment, armor, back, mask }
     switch (filterType) {
       case 'hasSheet':
-        updateURL({ tab, sort, page: 1, search: searchQuery, hasSheet: false, origin, alignment })
+        updateURL({ ...baseParams, hasSheet: false })
         break
       case 'origin':
-        updateURL({ tab, sort, page: 1, search: searchQuery, hasSheet, origin: null, alignment })
+        updateURL({ ...baseParams, origin: null })
         break
       case 'alignment':
-        updateURL({ tab, sort, page: 1, search: searchQuery, hasSheet, origin, alignment: null })
+        updateURL({ ...baseParams, alignment: null })
+        break
+      case 'armor':
+        updateURL({ ...baseParams, armor: null })
+        break
+      case 'back':
+        updateURL({ ...baseParams, back: null })
+        break
+      case 'mask':
+        updateURL({ ...baseParams, mask: null })
         break
       case 'search':
         setSearchInput('')
-        updateURL({ tab, sort, page: 1, search: '', hasSheet, origin, alignment })
+        updateURL({ ...baseParams, search: '' })
         break
     }
   }
@@ -180,54 +241,16 @@ function CharactersPageContent() {
         subtitle="Explore the WAGDIE collection - 6,666 unique characters"
       />
 
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
-        {/* Search Bar */}
-        <div className="mb-6">
-          <div className="relative max-w-md">
-            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-              <svg
-                className="w-4 h-4 text-neutral-500"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </div>
-            <input
-              type="text"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="Search by name or token ID..."
-              className="w-full bg-black/40 border border-neutral-800 rounded-sm py-2.5 pl-10 pr-10 text-md font-eskapade text-neutral-200 placeholder-neutral-600 focus:outline-none focus:border-soul-accent/50 focus:ring-1 focus:ring-soul-accent/30 transition-all"
-            />
-            {searchInput && (
-              <button
-                onClick={handleClearSearch}
-                className="absolute inset-y-0 right-0 flex items-center pr-3 text-neutral-500 hover:text-neutral-300 transition-colors"
-                aria-label="Clear search"
-              >
-                <svg className="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            )}
-          </div>
-          {searchQuery && (
-            <p className="mt-2 text-xs text-neutral-500 font-eskapade">
-              Searching for &ldquo;{searchQuery}&rdquo;
-            </p>
-          )}
-        </div>
-
-        {/* Filter Bar */}
-        <TokenFilterBar
+      <div className="flex">
+        {/* Filter Sidebar */}
+        <FilterSidebar
           currentTab={tab}
           currentSort={sort}
           onTabChange={handleTabChange}
           onSortChange={handleSortChange}
+          searchValue={searchInput}
+          onSearchChange={setSearchInput}
+          onClearSearch={handleClearSearch}
           hasSheetFilter={hasSheet}
           onHasSheetChange={handleHasSheetChange}
           originFilter={origin}
@@ -238,88 +261,109 @@ function CharactersPageContent() {
           availableAlignments={alignments}
           onAlignmentChange={handleAlignmentChange}
           alignmentsLoading={alignmentsLoading}
-          className="mb-4"
+          armorFilter={armor}
+          availableArmor={armorTraits}
+          onArmorChange={handleArmorChange}
+          armorLoading={armorLoading}
+          backFilter={back}
+          availableBack={backTraits}
+          onBackChange={handleBackChange}
+          backLoading={backLoading}
+          maskFilter={mask}
+          availableMask={maskTraits}
+          onMaskChange={handleMaskChange}
+          maskLoading={maskLoading}
+          onClearAllFilters={handleClearAllFilters}
+          totalCount={totalCount}
         />
 
-        {/* Active Filters Display */}
-        {hasActiveFilters && (
-          <ActiveFilters
-            filters={{
-              hasSheet,
-              origin,
-              alignment,
-              search: searchQuery || null,
-              tab
-            }}
-            onRemoveFilter={handleRemoveFilter}
-            onClearAll={handleClearAllFilters}
-          />
-        )}
+        {/* Main Content */}
+        <main className="flex-1 min-h-screen">
+          <div className="px-6 py-8">
+            {/* Active Filters Display (mobile-visible summary) */}
+            {hasActiveFilters && (
+              <ActiveFilters
+                filters={{
+                  hasSheet,
+                  origin,
+                  alignment,
+                  armor,
+                  back,
+                  mask,
+                  search: searchQuery || null,
+                  tab
+                }}
+                onRemoveFilter={handleRemoveFilter}
+                onClearAll={handleClearAllFilters}
+              />
+            )}
 
-        {/* Owned tab warning */}
-        {tab === 'owned' && !address && (
-          <Alert
-            variant="warning"
-            title="Wallet Required"
-            className="mb-8"
-          >
-            Connect your wallet to view your characters
-          </Alert>
-        )}
+            {/* Owned tab warning */}
+            {tab === 'owned' && !address && (
+              <Alert
+                variant="warning"
+                title="Wallet Required"
+                className="mb-8"
+              >
+                Connect your wallet to view your characters
+              </Alert>
+            )}
 
-        {/* Loading State */}
-        {isLoading && (
-          <div className="flex items-center justify-center py-20">
-            <Spinner size="lg" />
-          </div>
-        )}
-
-        {/* Empty State */}
-        {!isLoading && characters.length === 0 && (
-          <Empty
-            message={hasActiveFilters
-              ? "No characters match your current filters"
-              : "No characters found"
-            }
-            className="my-12"
-          />
-        )}
-
-        {/* Character Grid */}
-        {!isLoading && characters.length > 0 && (
-          <>
-            {/* Results count */}
-            <div className="flex items-center justify-between mb-6">
-              <p className="text-md font-display text-neutral-500">
-                Showing {((page - 1) * ITEMS_PER_PAGE) + 1}-{Math.min(page * ITEMS_PER_PAGE, totalCount)} of {totalCount} characters
-              </p>
-              {isFetching && !isLoading && (
-                <Spinner size="sm" />
-              )}
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 mb-12">
-              {characters.filter(character => character && character.token_id).map((character) => (
-                <CharacterCard
-                  key={character.token_id}
-                  character={character}
-                  onClick={handleCharacterClick}
-                />
-              ))}
-            </div>
-
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="flex justify-center py-8 border-t border-neutral-800">
-                <Pagination
-                  currentPage={page}
-                  totalPages={totalPages}
-                  onPageChange={handlePageChange}
-                />
+            {/* Loading State */}
+            {isLoading && (
+              <div className="flex items-center justify-center py-20">
+                <Spinner size="lg" />
               </div>
             )}
-          </>
-        )}
+
+            {/* Empty State */}
+            {!isLoading && characters.length === 0 && (
+              <Empty
+                message={hasActiveFilters
+                  ? "No characters match your current filters"
+                  : "No characters found"
+                }
+                className="my-12"
+              />
+            )}
+
+            {/* Character Grid */}
+            {!isLoading && characters.length > 0 && (
+              <>
+                {/* Results count */}
+                <div className="flex items-center justify-between mb-6">
+                  <p className="text-md font-display text-neutral-500">
+                    Showing {((page - 1) * ITEMS_PER_PAGE) + 1}-{Math.min(page * ITEMS_PER_PAGE, totalCount)} of {totalCount} characters
+                  </p>
+                  {isFetching && !isLoading && (
+                    <Spinner size="sm" />
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 mb-12">
+                  {characters.filter(character => character && character.token_id).map((character) => (
+                    <CharacterCard
+                      key={character.token_id}
+                      character={character}
+                      onClick={handleCharacterClick}
+                    />
+                  ))}
+                </div>
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="flex justify-center py-8 border-t border-neutral-800">
+                    <Pagination
+                      currentPage={page}
+                      totalPages={totalPages}
+                      onPageChange={handlePageChange}
+                    />
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </main>
       </div>
     </div>
   )
