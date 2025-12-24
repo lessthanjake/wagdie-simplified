@@ -50,7 +50,6 @@ interface SelectedStakingLocation {
   locationId: bigint;
 }
 
-type MapSidebarTab = 'details' | 'characters';
 
 /**
  * Get location ID from a marker, returns null if not a location marker
@@ -103,9 +102,8 @@ export default function MapPage() {
     ? (stakedByLocationId.get(selectedLocationId) ?? [])
     : [];
 
-  // Unified sidebar state
+  // Sidebar state
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [sidebarTab, setSidebarTab] = useState<MapSidebarTab>('details');
 
   // Staking selection (sticky, location-only updates)
   const [selectedStakingLocation, setSelectedStakingLocation] = useState<SelectedStakingLocation | null>(null);
@@ -116,7 +114,6 @@ export default function MapPage() {
 
   const handleMarkerClick = useCallback((marker: MarkerPayload) => {
     setSelectedMarker(marker);
-    setSidebarTab('details');
     setIsSidebarOpen(true);
 
     if (marker.type === 'location') {
@@ -245,7 +242,7 @@ export default function MapPage() {
     if (maybeScale && typeof maybeScale.resize === 'function' && width > 0 && height > 0) {
       maybeScale.resize(width, height);
     }
-  }, [isSidebarOpen, sidebarTab]);
+  }, [isSidebarOpen]);
 
   // Error state
   if (error) {
@@ -325,33 +322,6 @@ export default function MapPage() {
           <span className="font-eskapade text-xs  tracking-widest hidden sm:inline">Layers</span>
         </button>
 
-        {/* Characters sidebar toggle (opens unified sidebar in Characters tab) */}
-        <button
-          onClick={() => {
-            setSelectedMarker(null);
-            setSidebarTab('characters');
-            setIsSidebarOpen((prev) => {
-              if (!prev) return true;
-              return sidebarTab === 'characters' ? !prev : true;
-            });
-          }}
-          className={`absolute top-4 right-4 z-50 flex items-center gap-2 px-3 py-2 rounded border transition-all ${
-            isSidebarOpen && sidebarTab === 'characters'
-              ? 'bg-soul-accent text-black border-soul-accent'
-              : 'bg-black/80 text-neutral-300 border-neutral-700 hover:border-soul-accent hover:text-soul-accent'
-          }`}
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M17 20h5v-2a4 4 0 00-4-4h-1m-4 6H2v-2a4 4 0 014-4h7m0 6v-2a4 4 0 00-4-4H6m9-6a4 4 0 11-8 0 4 4 0 018 0zm7 4a3 3 0 10-6 0 3 3 0 006 0z"
-            />
-          </svg>
-          <span className="font-eskapade text-xs  tracking-widest hidden sm:inline">Characters</span>
-        </button>
-
         {/* Layer Panel */}
         <div
           className={`absolute top-16 left-4 z-40 bg-black/95 border border-soul-accent/60 rounded-lg p-4 shadow-xl backdrop-blur-sm transition-all duration-200 ${
@@ -412,11 +382,9 @@ export default function MapPage() {
         )}
       </div>
 
-      {/* Unified right sidebar (Details + Characters/Staking) */}
+      {/* Right sidebar */}
       <MapStakingSidebar
         isOpen={isSidebarOpen}
-        activeTab={sidebarTab}
-        onTabChange={setSidebarTab}
         onClose={handleCloseSidebar}
         selectedMarker={selectedMarker}
         stakedHere={stakedHere}
