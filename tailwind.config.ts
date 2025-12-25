@@ -17,14 +17,23 @@ const config: Config = {
       },
       fontSize: {
         // Standardized typography scale
-        'h1': ['2.5rem', { lineHeight: '3rem', letterSpacing: '0.1em' }],      // 40px - Page titles
-        'h2': ['2rem', { lineHeight: '2.5rem', letterSpacing: '0.08em' }],     // 32px - Section titles
+        'h1': ['2.5rem', { lineHeight: '3rem', letterSpacing: '0.025em' }],      // 40px - Page titles (1px letter-spacing)
+        'h2': ['2rem', { lineHeight: '2.5rem', letterSpacing: '0.03125em' }],     // 32px - Section titles (1px letter-spacing)
         'h3': ['1.5rem', { lineHeight: '2rem', letterSpacing: '0.05em' }],     // 24px - Card titles
         'h4': ['1.25rem', { lineHeight: '1.75rem', letterSpacing: '0.03em' }], // 20px - Subsections
         'body': ['1rem', { lineHeight: '1.625rem' }],                          // 16px - Body text
         'body-sm': ['0.875rem', { lineHeight: '1.375rem' }],                   // 14px - Secondary text
         'caption': ['0.75rem', { lineHeight: '1rem' }],                        // 12px - Captions, labels
         'tiny': ['0.625rem', { lineHeight: '0.875rem' }],                      // 10px - Badges, status
+        // Standard Tailwind aliases for consistency
+        'xs': ['0.75rem', { lineHeight: '1rem' }],                            // 12px - Alias to caption
+        'sm': ['0.875rem', { lineHeight: '1.375rem' }],                       // 14px - Alias to body-sm
+        'base': ['1rem', { lineHeight: '1.625rem' }],                          // 16px - Alias to body
+        'md': ['1rem', { lineHeight: '1.625rem' }],                           // 16px - Alias to body
+        'lg': ['1.125rem', { lineHeight: '1.5rem' }],                          // 18px - Medium-large
+        'xl': ['1.25rem', { lineHeight: '1.75rem', letterSpacing: '0.03em' }],  // 20px - Alias to h4
+        '2xl': ['1.5rem', { lineHeight: '2rem', letterSpacing: '0.05em' }],    // 24px - Alias to h3
+        '3xl': ['1.875rem', { lineHeight: '2.25rem', letterSpacing: '0.04em' }], // 30px - Large headings
       },
       colors: {
         // Gothic dark theme - Backgrounds
