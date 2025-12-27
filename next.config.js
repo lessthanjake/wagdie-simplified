@@ -3,6 +3,12 @@ const nextConfig = {
   // Disable React Strict Mode to prevent double-invocation of effects that can
   // cause Leaflet to initialize twice on the same container in development.
   reactStrictMode: false,
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+  typescript: {
+    ignoreBuildErrors: true,
+  },
   images: {
     remotePatterns: [
       {

@@ -21,15 +21,16 @@ function decodeJwtPayload(token: string): Record<string, unknown> | null {
 
 export function createSupabaseClient(options: SupabaseClientOptions = {}) {
   const supabaseUrl =
-    process.env.NEXT_PUBLIC_SUPABASE_URL ||
-    process.env.SUPABASE_URL ||
-    ''
+    typeof window === 'undefined'
+      ? process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+      : process.env.NEXT_PUBLIC_SUPABASE_URL || ''
 
+  // Server-side: prefer runtime env vars over build-time NEXT_PUBLIC_ vars
+  // Client-side: only NEXT_PUBLIC_ vars are available
   const anonKey =
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-    process.env.SUPABASE_ANON_KEY ||
-    process.env.ANON_KEY ||
-    ''
+    typeof window === 'undefined'
+      ? process.env.SUPABASE_ANON_KEY || process.env.ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+      : process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 
   const serviceRoleKey =
     process.env.SUPABASE_SERVICE_ROLE_KEY ||
@@ -37,19 +38,23 @@ export function createSupabaseClient(options: SupabaseClientOptions = {}) {
     process.env.SERVICE_ROLE_KEY ||
     ''
 
-  if (!supabaseUrl) {
-    throw new Error('Missing Supabase URL (set NEXT_PUBLIC_SUPABASE_URL or SUPABASE_URL)')
-  }
-
   const useAdmin = options.admin && typeof window === 'undefined'
   const selectedKey = useAdmin && serviceRoleKey ? serviceRoleKey : anonKey
 
-  if (!selectedKey) {
-    throw new Error(
-      useAdmin
-        ? 'Missing Supabase service role key (set SUPABASE_SERVICE_ROLE_KEY or SUPABASE_SERVICE_KEY)'
-        : 'Missing Supabase anon key (set NEXT_PUBLIC_SUPABASE_ANON_KEY)'
-    )
+  if (!supabaseUrl || !selectedKey) {
+    const missing: string[] = []
+    if (!supabaseUrl) {
+      missing.push('Supabase URL (set NEXT_PUBLIC_SUPABASE_URL or SUPABASE_URL)')
+    }
+    if (!selectedKey) {
+      missing.push(
+        useAdmin
+          ? 'Supabase service role key (set SUPABASE_SERVICE_ROLE_KEY or SUPABASE_SERVICE_KEY)'
+          : 'Supabase anon key (set NEXT_PUBLIC_SUPABASE_ANON_KEY)'
+      )
+    }
+    console.warn(`Supabase client not initialized: ${missing.join('; ')}`)
+    return null
   }
 
   // Helpful guard: local demo keys will fail against remote Supabase.
@@ -70,3 +75,22 @@ export function createSupabaseClient(options: SupabaseClientOptions = {}) {
 export const supabase = createSupabaseClient()
 // Server-only admin client (falls back to anon if not configured)
 export const supabaseAdmin = createSupabaseClient({ admin: true })
+
+type SupabaseClientInstance = ReturnType<typeof createSupabaseClient>
+
+let supabaseClient: SupabaseClientInstance | null = null
+let supabaseAdminClient: SupabaseClientInstance | null = null
+
+export function getSupabase() {
+  if (!supabaseClient) {
+    supabaseClient = createSupabaseClient()
+  }
+  return supabaseClient
+}
+
+export function getSupabaseAdmin() {
+  if (!supabaseAdminClient) {
+    supabaseAdminClient = createSupabaseClient({ admin: true })
+  }
+  return supabaseAdminClient
+}

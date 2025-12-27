@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   studio:
     image: supabase/studio:20231123-64a766a
@@ -25,6 +23,9 @@ services:
       KONG_PLUGINS: request-transformer,cors,key-auth,acl
     volumes:
       - ./volumes/api/kong.yml:/var/lib/kong/kong.yml:ro
+    networks:
+      - default
+      - homelab_homelab
 
   auth:
     image: supabase/gotrue:v2.99.0
@@ -148,6 +149,29 @@ services:
       INBUCKET_WEB_ADDR: 0.0.0.0:9000
       INBUCKET_SMTP_ADDR: 0.0.0.0:2500
       INBUCKET_POP3_ADDR: 0.0.0.0:1100
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    depends_on:
+      - kong
+    env_file:
+      - .env.docker
+    environment:
+      NODE_ENV: production
+      SUPABASE_URL: http://kong:8000
+      NEXT_PUBLIC_SUPABASE_URL: http://localhost:8010
+    networks:
+      - default
+      - homelab_homelab
+    restart: unless-stopped
+
+networks:
+  homelab_homelab:
+    external: true
 
 volumes:
   db-data:
