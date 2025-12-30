@@ -228,7 +228,13 @@ export default function CharacterDetailPage() {
           {activeTab === 'story' && <CharacterStoryTab story={editor.state.story} isEditMode={isEditMode} isOwner={isOwner} onChange={editor.setStory} />}
           {activeTab === 'ai-persona' && <AIPersonaTab tokenId={String(tokenId)} isOwner={isOwner} characterName={name} characterBackstory={editor.state.story} />}
           {activeTab === 'equipment' && <CharacterEquipmentTab equipment={character.equipment ?? null} metadataEquipment={character.metadata?.equipment} isEditMode={isEditMode} />}
-          {activeTab === 'wallet' && <CharacterWalletTab tokenId={tokenId} />}
+          {activeTab === 'wallet' && (
+            <CharacterWalletTab
+              tokenId={tokenId}
+              ownerAddress={character?.owner_address ?? null}
+              stakerAddress={character?.staker_address ?? null}
+            />
+          )}
         </div>
       </div>
 

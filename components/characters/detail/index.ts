@@ -6,6 +6,7 @@
 export { CharacterStoryTab } from './CharacterStoryTab'
 export { CharacterEquipmentTab } from './CharacterEquipmentTab'
 export { CharacterWalletTab } from './CharacterWalletTab'
+export { CharacterTransactionHistoryCard } from './CharacterTransactionHistoryCard'
 export { CharacterHeader } from './CharacterHeader'
 export { CharacterModals } from './CharacterModals'
 export { CharacterActions } from './CharacterActions'
