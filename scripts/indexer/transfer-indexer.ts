@@ -1,15 +1,25 @@
 // Transfer Indexer - Entry Point (Standalone)
-import { createPublicClient, http, webSocket, type Log } from 'viem'
+// Uses Etherscan API for fast backfill, WebSocket for live events
+import { createPublicClient, webSocket, type Log } from 'viem'
 import { loadState, saveState, type IndexerState } from './block-tracker'
 import { handleTransferLogs } from './event-handler'
 
 // WAGDIE contract address on mainnet
 const WAGDIE_CONTRACT = '0x659a4bdaaacc62d2bd9cb18225d9c89b5b697a5a' as const
 
+// ERC721 Transfer event topic: keccak256("Transfer(address,address,uint256)")
+const TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef'
+
 const DEFAULT_STATE_FILE = 'scripts/indexer/state.json'
-const CHUNK_SIZE = 10n
 const BASE_BACKOFF_MS = 1_000
 const MAX_BACKOFF_MS = 60_000
+
+// Etherscan API V2
+const ETHERSCAN_API_URL = 'https://api.etherscan.io/v2/api'
+const ETHERSCAN_API_KEY = process.env.ETHERSCAN_API_KEY || ''
+const ETHERSCAN_MAX_RESULTS = 1000
+const ETHERSCAN_CHAIN_ID = '1'
+const ETHERSCAN_RATE_LIMIT_MS = 250
 
 const transferEventAbi = {
   type: 'event',
@@ -23,6 +33,25 @@ const transferEventAbi = {
 } as const
 
 type PublicClient = ReturnType<typeof createPublicClient>
+
+interface EtherscanLogResult {
+  address: string
+  topics: string[]
+  data: string
+  blockNumber: string
+  timeStamp: string
+  gasPrice: string
+  gasUsed: string
+  logIndex: string
+  transactionHash: string
+  transactionIndex: string
+}
+
+interface EtherscanResponse {
+  status: string
+  message: string
+  result: EtherscanLogResult[] | string
+}
 
 let lastIndexedBlock: bigint | null = null
 let stopWatching: (() => void) | null = null
@@ -80,45 +109,106 @@ function backoffDelay(attempt: number): number {
   return Math.min(delay, MAX_BACKOFF_MS)
 }
 
-async function backfillRange(params: {
-  client: PublicClient
+async function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function etherscanLogToViemLog(ethLog: EtherscanLogResult): Log {
+  return {
+    address: ethLog.address.toLowerCase() as `0x${string}`,
+    topics: ethLog.topics as [`0x${string}`, ...`0x${string}`[]],
+    data: ethLog.data as `0x${string}`,
+    blockNumber: BigInt(ethLog.blockNumber),
+    transactionHash: ethLog.transactionHash as `0x${string}`,
+    transactionIndex: parseInt(ethLog.transactionIndex, 16),
+    blockHash: '0x0000000000000000000000000000000000000000000000000000000000000000' as `0x${string}`,
+    logIndex: parseInt(ethLog.logIndex, 16),
+    removed: false,
+  }
+}
+
+async function fetchEtherscanLogs(params: {
+  address: string
+  topic0: string
+  fromBlock: bigint
+  toBlock: bigint | 'latest'
+}): Promise<EtherscanLogResult[]> {
+  const url = new URL(ETHERSCAN_API_URL)
+  url.searchParams.set('chainid', ETHERSCAN_CHAIN_ID)
+  url.searchParams.set('module', 'logs')
+  url.searchParams.set('action', 'getLogs')
+  url.searchParams.set('address', params.address)
+  url.searchParams.set('topic0', params.topic0)
+  url.searchParams.set('fromBlock', params.fromBlock.toString())
+  url.searchParams.set('toBlock', params.toBlock === 'latest' ? 'latest' : params.toBlock.toString())
+  if (ETHERSCAN_API_KEY) {
+    url.searchParams.set('apikey', ETHERSCAN_API_KEY)
+  }
+
+  const response = await fetch(url.toString())
+  if (!response.ok) {
+    throw new Error(`Etherscan API error: ${response.status}`)
+  }
+
+  const data: EtherscanResponse = await response.json()
+
+  if (data.status !== '1') {
+    if (data.message === 'No records found' || data.result === 'No records found') {
+      return []
+    }
+    throw new Error(`Etherscan API error: ${data.message} - ${data.result}`)
+  }
+
+  if (!Array.isArray(data.result)) {
+    return []
+  }
+
+  return data.result
+}
+
+async function backfillWithEtherscan(params: {
   contract: `0x${string}`
   fromBlock: bigint
   toBlock: bigint
   stateFile: string
   chainId: number
 }): Promise<void> {
+  log(`Backfilling via Etherscan API from block ${params.fromBlock} to ${params.toBlock}`)
+
   let cursor = params.fromBlock
+  let allLogs: EtherscanLogResult[] = []
 
   while (cursor <= params.toBlock && !shuttingDown) {
-    const chunkEnd =
-      cursor + CHUNK_SIZE - 1n > params.toBlock
-        ? params.toBlock
-        : cursor + CHUNK_SIZE - 1n
+    const logs = await fetchEtherscanLogs({
+      address: params.contract,
+      topic0: TRANSFER_TOPIC,
+      fromBlock: cursor,
+      toBlock: params.toBlock,
+    })
 
-    log(`Backfilling blocks ${cursor} -> ${chunkEnd}`)
+    allLogs = allLogs.concat(logs)
+    log(`Fetched ${logs.length} Transfer events (total: ${allLogs.length})`)
 
-    let logs: Log[] = []
-    try {
-      logs = await params.client.getLogs({
-        address: params.contract,
-        event: transferEventAbi,
-        fromBlock: cursor,
-        toBlock: chunkEnd,
-      })
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      log(`Backfill error for ${cursor} -> ${chunkEnd}: ${message}`)
-      throw error
+    if (logs.length >= ETHERSCAN_MAX_RESULTS) {
+      const lastBlock = BigInt(logs[logs.length - 1].blockNumber)
+      cursor = lastBlock + 1n
+      await delay(ETHERSCAN_RATE_LIMIT_MS)
+    } else {
+      break
     }
-
-    const { processed } = await handleTransferLogs(logs)
-    log(`Processed ${processed} transfers for ${cursor} -> ${chunkEnd}`)
-
-    await persistState(params.stateFile, params.chainId, params.contract, chunkEnd)
-    await new Promise((r) => setTimeout(r, 100))
-    cursor = chunkEnd + 1n
   }
+
+  if (allLogs.length > 0) {
+    const viemLogs = allLogs.map(etherscanLogToViemLog)
+    log(`Processing ${viemLogs.length} transfer events...`)
+    const result = await handleTransferLogs(viemLogs)
+    log(`Processed ${result.processed} transfer events`)
+  } else {
+    log('No transfer events found')
+  }
+
+  await persistState(params.stateFile, params.chainId, params.contract, params.toBlock)
+  log(`Backfill complete up to block ${params.toBlock}`)
 }
 
 function scheduleReconnect(start: () => void, reason: string): void {
@@ -228,16 +318,16 @@ async function main(): Promise<void> {
     process.exit(1)
   }
 
-  const httpUrl = process.env.HTTP_RPC_URL
+  if (!ETHERSCAN_API_KEY) {
+    log('Warning: ETHERSCAN_API_KEY not set, rate limits will be stricter')
+  }
+
   const stateFile = process.env.STATE_FILE || DEFAULT_STATE_FILE
   const chainId = parseEnvNumber('CHAIN_ID', 1)
-  const startBlock = parseEnvBigInt('START_BLOCK', 0n)
+  const startBlock = parseEnvBigInt('START_BLOCK', 15422334n)
 
   const contractAddress = WAGDIE_CONTRACT
   const wsClient = createPublicClient({ transport: webSocket(wsUrl) })
-  const backfillClient = httpUrl
-    ? createPublicClient({ transport: http(httpUrl) })
-    : wsClient
 
   process.on('SIGINT', () => {
     void shutdown('SIGINT', stateFile, chainId, contractAddress)
@@ -265,18 +355,16 @@ async function main(): Promise<void> {
   }
 
   const fromBlock = lastIndexedBlock === null ? startBlock : lastIndexedBlock + 1n
-  const latestBlock = await backfillClient.getBlockNumber()
+  const latestBlock = await wsClient.getBlockNumber()
 
   if (fromBlock <= latestBlock) {
-    await backfillRange({
-      client: backfillClient,
+    await backfillWithEtherscan({
       contract: contractAddress,
       fromBlock,
       toBlock: latestBlock,
       stateFile,
       chainId,
     })
-    log(`Backfill complete up to block ${latestBlock}`)
   } else {
     log(`No backfill needed (from ${fromBlock} > latest ${latestBlock})`)
   }
