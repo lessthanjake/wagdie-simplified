@@ -36,6 +36,13 @@ CREATE POLICY "Public read access for concord_transfers"
   FOR SELECT
   USING (true);
 
+-- Service role insert access
+CREATE POLICY "Service role insert for concord_transfers"
+  ON concord_transfers
+  FOR INSERT
+  TO service_role
+  WITH CHECK (true);
+
 -- Grants
 GRANT SELECT ON concord_transfers TO anon, authenticated;
 GRANT SELECT, INSERT, UPDATE ON concord_transfers TO service_role;
