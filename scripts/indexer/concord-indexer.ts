@@ -1,9 +1,8 @@
 // Concord Indexer - Entry Point
 // Indexes ERC1155 transfers from TokensOfConcord contract
-// Uses HTTP RPC for backfill, WebSocket for live events
+// Uses Etherscan API for fast backfill, WebSocket for live events
 
-import { createPublicClient, http, webSocket, type Log } from 'viem'
-import { mainnet } from 'viem/chains'
+import { createPublicClient, webSocket, type Log } from 'viem'
 import { loadState, saveState, type IndexerState } from './block-tracker'
 import { handleConcordTransferLogs, CONCORD_TOPICS } from './concord-transfer-handler'
 
@@ -14,11 +13,33 @@ const DEFAULT_STATE_FILE = 'scripts/indexer/concord-state.json'
 const BASE_BACKOFF_MS = 1_000
 const MAX_BACKOFF_MS = 60_000
 
-// RPC block range limit
-const BLOCKS_PER_REQUEST = 1000n
-const REQUEST_DELAY_MS = 50
+// Etherscan API V2
+const ETHERSCAN_API_URL = 'https://api.etherscan.io/v2/api'
+const ETHERSCAN_API_KEY = process.env.ETHERSCAN_API_KEY || ''
+const ETHERSCAN_MAX_RESULTS = 1000
+const ETHERSCAN_CHAIN_ID = '1'
+const ETHERSCAN_RATE_LIMIT_MS = 250
 
 type PublicClient = ReturnType<typeof createPublicClient>
+
+interface EtherscanLogResult {
+  address: string
+  topics: string[]
+  data: string
+  blockNumber: string
+  timeStamp: string
+  gasPrice: string
+  gasUsed: string
+  logIndex: string
+  transactionHash: string
+  transactionIndex: string
+}
+
+interface EtherscanResponse {
+  status: string
+  message: string
+  result: EtherscanLogResult[] | string
+}
 
 let lastIndexedBlock: bigint | null = null
 let stopWatching: (() => void)[] = []
@@ -75,86 +96,110 @@ async function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-async function fetchLogsWithRpc(params: {
-  client: PublicClient
-  topic: `0x${string}`
-  topicName: string
-  fromBlock: bigint
-  toBlock: bigint
-}): Promise<Log[]> {
-  let allLogs: Log[] = []
-  let cursor = params.fromBlock
-
-  while (cursor <= params.toBlock && !shuttingDown) {
-    const endBlock = cursor + BLOCKS_PER_REQUEST - 1n > params.toBlock
-      ? params.toBlock
-      : cursor + BLOCKS_PER_REQUEST - 1n
-
-    try {
-      const logs = await params.client.getLogs({
-        address: CONCORD_CONTRACT,
-        fromBlock: cursor,
-        toBlock: endBlock,
-      })
-
-      // Filter to just our topic
-      const filteredLogs = logs.filter(l => l.topics[0] === params.topic)
-      allLogs = allLogs.concat(filteredLogs)
-
-      if (filteredLogs.length > 0) {
-        log(`Fetched ${filteredLogs.length} ${params.topicName} events (blocks ${cursor}-${endBlock})`)
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      log(`Error fetching ${params.topicName} logs (blocks ${cursor}-${endBlock}): ${message}`)
-      await delay(1000)
-      continue
-    }
-
-    cursor = endBlock + 1n
-    if (cursor <= params.toBlock) {
-      await delay(REQUEST_DELAY_MS)
-    }
+function etherscanLogToViemLog(ethLog: EtherscanLogResult): Log {
+  return {
+    address: ethLog.address.toLowerCase() as `0x${string}`,
+    topics: ethLog.topics as [`0x${string}`, ...`0x${string}`[]],
+    data: ethLog.data as `0x${string}`,
+    blockNumber: BigInt(ethLog.blockNumber),
+    transactionHash: ethLog.transactionHash as `0x${string}`,
+    transactionIndex: parseInt(ethLog.transactionIndex, 16),
+    blockHash: '0x0000000000000000000000000000000000000000000000000000000000000000' as `0x${string}`,
+    logIndex: parseInt(ethLog.logIndex, 16),
+    removed: false,
   }
-
-  return allLogs
 }
 
-async function backfillWithRpc(params: {
-  client: PublicClient
+async function fetchEtherscanLogs(params: {
+  address: string
+  topic0: string
+  fromBlock: bigint
+  toBlock: bigint | 'latest'
+}): Promise<EtherscanLogResult[]> {
+  const url = new URL(ETHERSCAN_API_URL)
+  url.searchParams.set('chainid', ETHERSCAN_CHAIN_ID)
+  url.searchParams.set('module', 'logs')
+  url.searchParams.set('action', 'getLogs')
+  url.searchParams.set('address', params.address)
+  url.searchParams.set('topic0', params.topic0)
+  url.searchParams.set('fromBlock', params.fromBlock.toString())
+  url.searchParams.set('toBlock', params.toBlock === 'latest' ? 'latest' : params.toBlock.toString())
+  if (ETHERSCAN_API_KEY) {
+    url.searchParams.set('apikey', ETHERSCAN_API_KEY)
+  }
+
+  const response = await fetch(url.toString())
+  if (!response.ok) {
+    throw new Error(`Etherscan API error: ${response.status}`)
+  }
+
+  const data: EtherscanResponse = await response.json()
+
+  if (data.status !== '1') {
+    if (data.message === 'No records found' || data.result === 'No records found') {
+      return []
+    }
+    throw new Error(`Etherscan API error: ${data.message} - ${data.result}`)
+  }
+
+  if (!Array.isArray(data.result)) {
+    return []
+  }
+
+  return data.result
+}
+
+async function backfillWithEtherscan(params: {
   fromBlock: bigint
   toBlock: bigint
   stateFile: string
   chainId: number
 }): Promise<void> {
-  const totalBlocks = params.toBlock - params.fromBlock
-  log(`Backfilling via RPC from block ${params.fromBlock} to ${params.toBlock} (${totalBlocks} blocks)`)
+  log(`Backfilling via Etherscan API from block ${params.fromBlock} to ${params.toBlock}`)
 
-  const eventTopics: { topic: `0x${string}`; name: string }[] = [
-    { topic: CONCORD_TOPICS.TransferSingle as `0x${string}`, name: 'TransferSingle' },
-    { topic: CONCORD_TOPICS.TransferBatch as `0x${string}`, name: 'TransferBatch' },
+  const eventTopics: { topic: string; name: string }[] = [
+    { topic: CONCORD_TOPICS.TransferSingle, name: 'TransferSingle' },
+    { topic: CONCORD_TOPICS.TransferBatch, name: 'TransferBatch' },
   ]
 
-  let allLogs: Log[] = []
+  let allLogs: EtherscanLogResult[] = []
 
   for (const { topic, name } of eventTopics) {
     if (shuttingDown) break
 
     log(`Fetching ${name} events...`)
-    const logs = await fetchLogsWithRpc({
-      client: params.client,
-      topic,
-      topicName: name,
-      fromBlock: params.fromBlock,
-      toBlock: params.toBlock,
-    })
-    allLogs = allLogs.concat(logs)
-    log(`Total ${name} events: ${logs.length}`)
+    let cursor = params.fromBlock
+    let eventLogs: EtherscanLogResult[] = []
+
+    while (cursor <= params.toBlock && !shuttingDown) {
+      const logs = await fetchEtherscanLogs({
+        address: CONCORD_CONTRACT,
+        topic0: topic,
+        fromBlock: cursor,
+        toBlock: params.toBlock,
+      })
+
+      eventLogs = eventLogs.concat(logs)
+      log(`Fetched ${logs.length} ${name} events (total: ${eventLogs.length})`)
+
+      if (logs.length >= ETHERSCAN_MAX_RESULTS) {
+        const lastBlock = BigInt(logs[logs.length - 1].blockNumber)
+        cursor = lastBlock + 1n
+        await delay(ETHERSCAN_RATE_LIMIT_MS)
+      } else {
+        break
+      }
+    }
+
+    allLogs = allLogs.concat(eventLogs)
+    log(`Total ${name} events: ${eventLogs.length}`)
+    await delay(ETHERSCAN_RATE_LIMIT_MS)
   }
 
   if (allLogs.length > 0) {
-    log(`Processing ${allLogs.length} total transfer events...`)
-    const result = await handleConcordTransferLogs(allLogs)
+    const viemLogs = allLogs.map(etherscanLogToViemLog)
+    log(`Processing ${viemLogs.length} total transfer events...`)
+    const result = await handleConcordTransferLogs(viemLogs)
     log(`Processed ${result.processed} transfer events`)
   } else {
     log('No transfer events found')
@@ -303,16 +348,14 @@ async function shutdown(
 
 async function main(): Promise<void> {
   const wsUrl = process.env.WS_RPC_URL
-  const httpUrl = process.env.HTTP_RPC_URL
 
   if (!wsUrl) {
     log('WS_RPC_URL is required')
     process.exit(1)
   }
 
-  if (!httpUrl) {
-    log('HTTP_RPC_URL is required for backfill')
-    process.exit(1)
+  if (!ETHERSCAN_API_KEY) {
+    log('Warning: ETHERSCAN_API_KEY not set, rate limits will be stricter')
   }
 
   const stateFile = process.env.STATE_FILE || DEFAULT_STATE_FILE
@@ -320,15 +363,7 @@ async function main(): Promise<void> {
   // TokensOfConcord deployed around block 15400000
   const startBlock = parseEnvBigInt('START_BLOCK', 15400000n)
 
-  const httpClient = createPublicClient({
-    chain: mainnet,
-    transport: http(httpUrl),
-  })
-
-  const wsClient = createPublicClient({
-    chain: mainnet,
-    transport: webSocket(wsUrl),
-  })
+  const wsClient = createPublicClient({ transport: webSocket(wsUrl) })
 
   process.on('SIGINT', () => {
     void shutdown('SIGINT', stateFile, chainId)
@@ -360,13 +395,12 @@ async function main(): Promise<void> {
   }
 
   const fromBlock = lastIndexedBlock === null ? startBlock : lastIndexedBlock + 1n
-  const latestBlock = await httpClient.getBlockNumber()
+  const latestBlock = await wsClient.getBlockNumber()
 
   log(`TokensOfConcord contract: ${CONCORD_CONTRACT}`)
 
   if (fromBlock <= latestBlock) {
-    await backfillWithRpc({
-      client: httpClient,
+    await backfillWithEtherscan({
       fromBlock,
       toBlock: latestBlock,
       stateFile,

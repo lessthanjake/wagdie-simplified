@@ -177,11 +177,12 @@ services:
       - kong
     environment:
       WS_RPC_URL: ${WS_RPC_URL}
-      HTTP_RPC_URL: ${HTTP_RPC_URL}
       NEXT_PUBLIC_SUPABASE_URL: https://wagdie-api.runiverse.ai
       SUPABASE_SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+      ETHERSCAN_API_KEY: ${ETHERSCAN_API_KEY}
       STATE_FILE: /app/data/state.json
       CHAIN_ID: 1
+      START_BLOCK: 15422334
     volumes:
       - indexer-data:/app/data
     networks:
@@ -239,9 +240,9 @@ services:
       - kong
     environment:
       WS_RPC_URL: ${WS_RPC_URL}
-      HTTP_RPC_URL: ${HTTP_RPC_URL}
       NEXT_PUBLIC_SUPABASE_URL: http://kong:8000
       SUPABASE_SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+      ETHERSCAN_API_KEY: ${ETHERSCAN_API_KEY}
       STATE_FILE: /app/data/staking-state.json
       CHAIN_ID: 1
       START_BLOCK: 15422334
@@ -260,9 +261,9 @@ services:
       - kong
     environment:
       WS_RPC_URL: ${WS_RPC_URL}
-      HTTP_RPC_URL: ${HTTP_RPC_URL}
       NEXT_PUBLIC_SUPABASE_URL: http://kong:8000
       SUPABASE_SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+      ETHERSCAN_API_KEY: ${ETHERSCAN_API_KEY}
       STATE_FILE: /app/data/concord-state.json
       CHAIN_ID: 1
       START_BLOCK: 15400000
