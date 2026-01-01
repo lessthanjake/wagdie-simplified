@@ -35,6 +35,13 @@ CREATE POLICY "Public read access for staking_events"
   FOR SELECT
   USING (true);
 
+-- Service role insert access
+CREATE POLICY "Service role insert for staking_events"
+  ON staking_events
+  FOR INSERT
+  TO service_role
+  WITH CHECK (true);
+
 -- Grants
 GRANT SELECT ON staking_events TO anon, authenticated;
 GRANT SELECT, INSERT, UPDATE ON staking_events TO service_role;
