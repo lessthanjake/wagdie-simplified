@@ -9,14 +9,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth/session'
 import { createUserClient } from '@/lib/eliza/client'
 import { resolveCharacterByTokenId } from '@/lib/eliza/characterResolver'
-import { CHARACTERS_TABLE } from '@/lib/db/tables'
-import { createClient } from '@supabase/supabase-js'
+import { getCharacter } from '@/lib/services/character-service'
 // ErrorResponse type used indirectly through NextResponse.json
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
 
 interface ChatRequest {
   tokenId: string
@@ -79,13 +73,8 @@ export async function POST(request: NextRequest): Promise<Response> {
     }
 
     // Verify character exists in WAGDIE database
-    const { data: wagdieCharacter, error: dbError } = await supabase
-      .from(CHARACTERS_TABLE)
-      .select('token_id, name, background_story')
-      .eq('token_id', parsedTokenId)
-      .single()
-
-    if (dbError || !wagdieCharacter) {
+    const wagdieCharacter = await getCharacter(parsedTokenId)
+    if (!wagdieCharacter) {
       return NextResponse.json(
         { error: 'NOT_FOUND', message: 'WAGDIE character not found' },
         { status: 404 }

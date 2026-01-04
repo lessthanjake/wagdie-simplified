@@ -8,14 +8,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth/session'
 import { getElizaClient } from '@/lib/eliza/client'
 import { isAdmin } from '@/lib/auth/admin'
-import { CHARACTERS_TABLE } from '@/lib/db/tables'
-import { createClient } from '@supabase/supabase-js'
+import { getCharacter } from '@/lib/services/character-service'
 import type { AICharacter, UpdateAICharacterInput, ErrorResponse } from '@/types/eliza'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
 
 interface RouteParams {
   params: Promise<{ tokenId: string }>
@@ -280,16 +274,12 @@ export async function PUT(
     console.log('[Eliza PUT] Session address:', session.address)
 
     // Check character ownership in WAGDIE database
-    console.log('[Eliza PUT] Fetching character from Supabase, tokenId:', parsedTokenId)
-    const { data: wagdieCharacter, error: dbError } = await supabase
-      .from(CHARACTERS_TABLE)
-      .select('token_id, name, background_story, owner_address')
-      .eq('token_id', parsedTokenId)
-      .single()
+    console.log('[Eliza PUT] Fetching character from repository, tokenId:', parsedTokenId)
+    const wagdieCharacter = await getCharacter(parsedTokenId)
 
-    console.log('[Eliza PUT] Supabase result:', { wagdieCharacter, dbError })
+    console.log('[Eliza PUT] Character lookup result:', { found: Boolean(wagdieCharacter) })
 
-    if (dbError || !wagdieCharacter) {
+    if (!wagdieCharacter) {
       console.log('[Eliza PUT] Character not found in WAGDIE database')
       return NextResponse.json(
         { error: 'NOT_FOUND', message: 'WAGDIE character not found' },

@@ -1,17 +1,14 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://kong:8000'
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+import { parseLimitOffsetParams, parseTokenIdParam } from '@/lib/api/params'
+import { activityRepository } from '@/lib/repositories/activity-repository'
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ tokenId: string }> }
 ) {
   const { tokenId } = await params
-  const tokenIdNum = parseInt(tokenId, 10)
-
-  if (isNaN(tokenIdNum) || tokenIdNum < 1 || tokenIdNum > 6666) {
+  const tokenIdNum = parseTokenIdParam(tokenId, { min: 1, max: 6666 })
+  if (tokenIdNum === null) {
     return NextResponse.json(
       { error: 'Invalid token ID' },
       { status: 400 }
@@ -19,26 +16,31 @@ export async function GET(
   }
 
   const url = new URL(request.url)
-  const limit = Math.min(parseInt(url.searchParams.get('limit') || '50', 10), 100)
-  const offset = parseInt(url.searchParams.get('offset') || '0', 10)
+  const { limit, offset } = parseLimitOffsetParams(url.searchParams, { defaultLimit: 50, maxLimit: 100 })
   const eventType = url.searchParams.get('event_type')
+  const allowedEventTypes = ['stake', 'unstake', 'location_change', 'burn'] as const
+  const normalizedEventType = allowedEventTypes.includes(eventType as typeof allowedEventTypes[number])
+    ? (eventType as typeof allowedEventTypes[number])
+    : undefined
 
-  const supabase = createClient(supabaseUrl, supabaseKey)
-
-  let query = supabase
-    .from('staking_events')
-    .select('*', { count: 'exact' })
-    .eq('token_id', tokenIdNum)
-    .order('block_number', { ascending: false })
-    .range(offset, offset + limit - 1)
-
-  if (eventType && ['stake', 'unstake', 'location_change', 'burn'].includes(eventType)) {
-    query = query.eq('event_type', eventType)
+  if (eventType && !normalizedEventType) {
+    return NextResponse.json(
+      { error: 'Invalid event type' },
+      { status: 400 }
+    )
   }
 
-  const { data, error, count } = await query
-
-  if (error) {
+  let events = []
+  let total = 0
+  try {
+    const result = await activityRepository.findStakingEvents(tokenIdNum, {
+      limit,
+      offset,
+      eventType: normalizedEventType,
+    })
+    events = result.events
+    total = result.total
+  } catch (error) {
     console.error('Failed to fetch staking events:', error)
     return NextResponse.json(
       { error: 'Failed to fetch staking events' },
@@ -48,8 +50,8 @@ export async function GET(
 
   return NextResponse.json({
     tokenId: tokenIdNum,
-    events: data || [],
-    total: count || 0,
+    events,
+    total,
     limit,
     offset,
   })

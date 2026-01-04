@@ -7,6 +7,13 @@ import {
   handleInfectionSpreadLogs,
   handleMushroomBurnLogs,
 } from './infection-event-handler'
+import {
+  rateLimitedFetch,
+  isEtherscanRateLimitResponse,
+  getStartupDelay,
+} from './etherscan-rate-limiter'
+
+const INDEXER_NAME = 'infection-indexer'
 
 // Contract addresses on mainnet
 const SPREAD_CONTRACT = '0xaCA80514986768F88F7d8E644546AB85383ddE7e' as const
@@ -138,26 +145,48 @@ async function fetchEtherscanLogs(params: {
     url.searchParams.set('apikey', ETHERSCAN_API_KEY)
   }
 
-  const response = await fetch(url.toString())
-  if (!response.ok) {
-    throw new Error(`Etherscan API error: ${response.status}`)
-  }
+  const doFetch = async (): Promise<EtherscanLogResult[]> => {
+    const response = await fetch(url.toString())
+    if (!response.ok) {
+      throw new Error(`Etherscan API error: ${response.status}`)
+    }
 
-  const data: EtherscanResponse = await response.json()
+    const data: EtherscanResponse = await response.json()
 
-  if (data.status !== '1') {
-    // "No records found" is not an error
-    if (data.message === 'No records found' || data.result === 'No records found') {
+    // Check for rate limit in response
+    if (isEtherscanRateLimitResponse(data)) {
+      throw new Error(`Etherscan rate limit: ${data.result}`)
+    }
+
+    if (data.status !== '1') {
+      // "No records found" is not an error
+      if (data.message === 'No records found' || data.result === 'No records found') {
+        return []
+      }
+      throw new Error(`Etherscan API error: ${data.message} - ${data.result}`)
+    }
+
+    if (!Array.isArray(data.result)) {
       return []
     }
-    throw new Error(`Etherscan API error: ${data.message} - ${data.result}`)
+
+    return data.result
   }
 
-  if (!Array.isArray(data.result)) {
-    return []
+  // Use shared rate limiter with automatic retry on rate limit errors
+  const result = await rateLimitedFetch(INDEXER_NAME, doFetch, (error) => {
+    if (error instanceof Error) {
+      return error.message.includes('rate limit') ||
+             error.message.includes('Max calls per sec')
+    }
+    return false
+  })
+
+  if (result.retryCount > 0) {
+    log(`Recovered from rate limit after ${result.retryCount} retries`)
   }
 
-  return data.result
+  return result.data
 }
 
 async function backfillWithEtherscan(params: {
@@ -188,7 +217,7 @@ async function backfillWithEtherscan(params: {
     if (logs.length >= ETHERSCAN_MAX_RESULTS) {
       const lastBlock = BigInt(logs[logs.length - 1].blockNumber)
       cursor = lastBlock + 1n
-      await delay(ETHERSCAN_RATE_LIMIT_MS)
+      // Rate limiter handles delays between calls
     } else {
       break
     }
@@ -201,7 +230,7 @@ async function backfillWithEtherscan(params: {
     log(`Processed ${result.processed} infection events`)
   }
 
-  await delay(ETHERSCAN_RATE_LIMIT_MS)
+  // Rate limiter handles delays between event types
 
   // Fetch TransferSingle burn events from Mushroom contract
   log('Fetching mushroom TransferSingle events...')
@@ -222,13 +251,13 @@ async function backfillWithEtherscan(params: {
     if (logs.length >= ETHERSCAN_MAX_RESULTS) {
       const lastBlock = BigInt(logs[logs.length - 1].blockNumber)
       cursor = lastBlock + 1n
-      await delay(ETHERSCAN_RATE_LIMIT_MS)
+      // Rate limiter handles delays between calls
     } else {
       break
     }
   }
 
-  await delay(ETHERSCAN_RATE_LIMIT_MS)
+  // Rate limiter handles delays between event types
 
   // Fetch TransferBatch burn events from Mushroom contract
   log('Fetching mushroom TransferBatch events...')
@@ -249,7 +278,7 @@ async function backfillWithEtherscan(params: {
     if (logs.length >= ETHERSCAN_MAX_RESULTS) {
       const lastBlock = BigInt(logs[logs.length - 1].blockNumber)
       cursor = lastBlock + 1n
-      await delay(ETHERSCAN_RATE_LIMIT_MS)
+      // Rate limiter handles delays between calls
     } else {
       break
     }
@@ -451,6 +480,13 @@ async function shutdown(
 }
 
 async function main(): Promise<void> {
+  // Stagger startup to prevent all indexers hitting Etherscan at once
+  const startupDelay = getStartupDelay(INDEXER_NAME)
+  if (startupDelay > 0) {
+    log(`Waiting ${startupDelay}ms before starting (staggered startup)`)
+    await delay(startupDelay)
+  }
+
   const wsUrl = process.env.WS_RPC_URL
   if (!wsUrl) {
     log('WS_RPC_URL is required')

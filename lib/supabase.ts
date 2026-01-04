@@ -1,7 +1,10 @@
 import { createClient } from '@supabase/supabase-js'
 import { Database } from './database.types'
 
-type SupabaseClientOptions = { admin?: boolean }
+type SupabaseClientOptions = {
+  admin?: boolean
+  clientOptions?: Parameters<typeof createClient>[2]
+}
 
 function base64UrlDecode(input: string): string {
   const normalized = input.replace(/-/g, '+').replace(/_/g, '/')
@@ -39,7 +42,7 @@ export function createSupabaseClient(options: SupabaseClientOptions = {}) {
     ''
 
   const useAdmin = options.admin && typeof window === 'undefined'
-  const selectedKey = useAdmin && serviceRoleKey ? serviceRoleKey : anonKey
+  const selectedKey = useAdmin ? serviceRoleKey : anonKey
 
   if (!supabaseUrl || !selectedKey) {
     const missing: string[] = []
@@ -68,13 +71,25 @@ export function createSupabaseClient(options: SupabaseClientOptions = {}) {
     )
   }
 
-  return createClient<Database>(supabaseUrl, selectedKey)
+  return createClient<Database>(supabaseUrl, selectedKey, options.clientOptions)
+}
+
+export function createSupabaseAdminClient() {
+  return createSupabaseClient({
+    admin: true,
+    clientOptions: {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    },
+  })
 }
 
 // Browser-safe anon client
 export const supabase = createSupabaseClient()
-// Server-only admin client (falls back to anon if not configured)
-export const supabaseAdmin = createSupabaseClient({ admin: true })
+// Server-only admin client (requires service role key)
+export const supabaseAdmin = createSupabaseAdminClient()
 
 type SupabaseClientInstance = ReturnType<typeof createSupabaseClient>
 
@@ -90,7 +105,7 @@ export function getSupabase() {
 
 export function getSupabaseAdmin() {
   if (!supabaseAdminClient) {
-    supabaseAdminClient = createSupabaseClient({ admin: true })
+    supabaseAdminClient = createSupabaseAdminClient()
   }
   return supabaseAdminClient
 }

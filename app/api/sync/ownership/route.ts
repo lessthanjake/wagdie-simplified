@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createSupabaseAdminClient } from '@/lib/supabase'
 import { OwnershipSyncService } from '@/lib/services/sync/ownership-sync-service'
 
 /**
@@ -40,30 +40,6 @@ function verifyAuthorization(request: NextRequest): boolean {
 }
 
 /**
- * Create a Supabase admin client for bypassing RLS
- */
-function createAdminClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL
-  const serviceRoleKey =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.SUPABASE_SERVICE_KEY ||
-    process.env.SERVICE_ROLE_KEY
-
-  if (!supabaseUrl || !serviceRoleKey) {
-    throw new Error(
-      'Missing Supabase configuration for admin client (set SUPABASE_SERVICE_ROLE_KEY and SUPABASE_URL)'
-    )
-  }
-
-  return createClient(supabaseUrl, serviceRoleKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  })
-}
-
-/**
  * GET handler for Vercel cron (cron sends GET requests)
  */
 export async function GET(request: NextRequest) {
@@ -88,7 +64,13 @@ async function handleSync(request: NextRequest) {
 
   try {
     // Create admin client for database writes
-    const supabaseAdmin = createAdminClient()
+    const supabaseAdmin = createSupabaseAdminClient()
+    if (!supabaseAdmin) {
+      return NextResponse.json(
+        { error: 'Supabase admin client not configured' },
+        { status: 500 }
+      )
+    }
 
     // Create sync service with admin client
     const syncService = new OwnershipSyncService({

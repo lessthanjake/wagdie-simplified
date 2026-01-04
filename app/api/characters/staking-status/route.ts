@@ -5,8 +5,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
-import { CHARACTERS_TABLE } from '@/lib/db/tables'
+import { parseCsvNumberList } from '@/lib/api/params'
+import { activityRepository } from '@/lib/repositories/activity-repository'
 
 interface StakingStatusResponse {
   tokenId: number
@@ -32,10 +32,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<ApiRespons
     }
 
     // Parse token IDs from comma-separated string
-    const tokenIds = tokenIdsParam
-      .split(',')
-      .map(id => parseInt(id.trim(), 10))
-      .filter(id => !isNaN(id) && id > 0)
+    const tokenIds = parseCsvNumberList(tokenIdsParam, { min: 1 })
 
     if (tokenIds.length === 0) {
       return NextResponse.json({ statuses: [] })
@@ -50,12 +47,10 @@ export async function GET(request: NextRequest): Promise<NextResponse<ApiRespons
     }
 
     // Query database for staking status (location_id)
-    const { data, error } = await supabase
-      .from(CHARACTERS_TABLE)
-      .select('token_id, location_id')
-      .in('token_id', tokenIds)
-
-    if (error) {
+    let rows = []
+    try {
+      rows = await activityRepository.findStakingStatusRows(tokenIds)
+    } catch (error) {
       console.error('Error fetching staking status:', error)
       return NextResponse.json(
         { statuses: [], error: 'Failed to fetch staking status' },
@@ -65,7 +60,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<ApiRespons
 
     // Build response with staking status
     const statusMap = new Map<number, { location_id: string | null }>()
-    for (const row of (data || []) as Array<{ token_id: number; location_id: string | null }>) {
+    for (const row of rows) {
       statusMap.set(row.token_id, { location_id: row.location_id })
     }
 

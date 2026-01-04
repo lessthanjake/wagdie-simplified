@@ -4,6 +4,13 @@
 import { createPublicClient, webSocket, type Log } from 'viem'
 import { loadState, saveState, type IndexerState } from './block-tracker'
 import { handleSearConcordsLogs } from './searing-event-handler'
+import {
+  rateLimitedFetch,
+  isEtherscanRateLimitResponse,
+  getStartupDelay,
+} from './etherscan-rate-limiter'
+
+const INDEXER_NAME = 'searing-indexer'
 
 // Contract address on mainnet
 const SEARING_CONTRACT = '0x5156A7F668E59119db23a264502F40407CDa076F' as const
@@ -130,26 +137,45 @@ async function fetchEtherscanLogs(params: {
     url.searchParams.set('apikey', ETHERSCAN_API_KEY)
   }
 
-  const response = await fetch(url.toString())
-  if (!response.ok) {
-    throw new Error(`Etherscan API error: ${response.status}`)
-  }
+  const doFetch = async (): Promise<EtherscanLogResult[]> => {
+    const response = await fetch(url.toString())
+    if (!response.ok) {
+      throw new Error(`Etherscan API error: ${response.status}`)
+    }
 
-  const data: EtherscanResponse = await response.json()
+    const data: EtherscanResponse = await response.json()
 
-  if (data.status !== '1') {
-    // "No records found" is not an error
-    if (data.message === 'No records found' || data.result === 'No records found') {
+    if (isEtherscanRateLimitResponse(data)) {
+      throw new Error(`Etherscan rate limit: ${data.result}`)
+    }
+
+    if (data.status !== '1') {
+      if (data.message === 'No records found' || data.result === 'No records found') {
+        return []
+      }
+      throw new Error(`Etherscan API error: ${data.message} - ${data.result}`)
+    }
+
+    if (!Array.isArray(data.result)) {
       return []
     }
-    throw new Error(`Etherscan API error: ${data.message} - ${data.result}`)
+
+    return data.result
   }
 
-  if (!Array.isArray(data.result)) {
-    return []
+  const result = await rateLimitedFetch(INDEXER_NAME, doFetch, (error) => {
+    if (error instanceof Error) {
+      return error.message.includes('rate limit') ||
+             error.message.includes('Max calls per sec')
+    }
+    return false
+  })
+
+  if (result.retryCount > 0) {
+    log(`Recovered from rate limit after ${result.retryCount} retries`)
   }
 
-  return data.result
+  return result.data
 }
 
 async function backfillWithEtherscan(params: {
@@ -180,7 +206,7 @@ async function backfillWithEtherscan(params: {
     if (logs.length >= ETHERSCAN_MAX_RESULTS) {
       const lastBlock = BigInt(logs[logs.length - 1].blockNumber)
       cursor = lastBlock + 1n
-      await delay(ETHERSCAN_RATE_LIMIT_MS)
+      // Rate limiter handles delays between calls
     } else {
       break
     }
@@ -310,6 +336,13 @@ async function shutdown(
 }
 
 async function main(): Promise<void> {
+  // Stagger startup to prevent all indexers hitting Etherscan at once
+  const startupDelay = getStartupDelay(INDEXER_NAME)
+  if (startupDelay > 0) {
+    log(`Waiting ${startupDelay}ms before starting (staggered startup)`)
+    await delay(startupDelay)
+  }
+
   const wsUrl = process.env.WS_RPC_URL
   if (!wsUrl) {
     log('WS_RPC_URL is required')
