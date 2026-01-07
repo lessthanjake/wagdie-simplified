@@ -1,37 +1,27 @@
-// Transfer Indexer - Entry Point (Standalone)
-// Uses Etherscan API for fast backfill, WebSocket for live events
-import { createPublicClient, webSocket, type Log } from 'viem'
-import { loadState, saveState, type IndexerState } from './block-tracker'
+/**
+ * Transfer Indexer - Refactored with Core Module
+ *
+ * Tracks ERC721 Transfer events on the WAGDIE contract.
+ * Uses Etherscan API for historical backfill, WebSocket for live events.
+ *
+ * Feature: 021-indexer-fixes
+ */
+import { runIndexer, parseEnvBigInt, parseEnvNumber, getEnv } from './core'
+import type { IndexerConfig, Address } from './core'
 import { handleTransferLogs } from './event-handler'
-import {
-  rateLimitedFetch,
-  isEtherscanRateLimitResponse,
-  getStartupDelay,
-} from './etherscan-rate-limiter'
-import { fetchLogsWithSubdivision, type EtherscanLogResult } from './utils/pagination'
 import { getContractAddresses } from '../../lib/contracts/addresses'
+import { getStartupDelay } from './etherscan-rate-limiter'
 
+// Configuration
 const INDEXER_NAME = 'transfer-indexer'
-
-// Get contract address from centralized config
-const CHAIN_ID = parseInt(process.env.CHAIN_ID || '1', 10)
+const CHAIN_ID = parseEnvNumber('CHAIN_ID', 1)
 const addresses = getContractAddresses(CHAIN_ID)
-const WAGDIE_CONTRACT = addresses.wagdie
+const WAGDIE_CONTRACT = addresses.wagdie as Address
 
 // ERC721 Transfer event topic: keccak256("Transfer(address,address,uint256)")
-const TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef'
+const TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef' as const
 
-const DEFAULT_STATE_FILE = 'scripts/indexer/state.json'
-const BASE_BACKOFF_MS = 1_000
-const MAX_BACKOFF_MS = 60_000
-
-// Etherscan API V2
-const ETHERSCAN_API_URL = 'https://api.etherscan.io/v2/api'
-const ETHERSCAN_API_KEY = process.env.ETHERSCAN_API_KEY || ''
-const ETHERSCAN_MAX_RESULTS = 1000
-const ETHERSCAN_CHAIN_ID = '1'
-const ETHERSCAN_RATE_LIMIT_MS = 250
-
+// Transfer event ABI for live watching
 const transferEventAbi = {
   type: 'event',
   name: 'Transfer',
@@ -43,382 +33,52 @@ const transferEventAbi = {
   anonymous: false,
 } as const
 
-type PublicClient = ReturnType<typeof createPublicClient>
-
-interface EtherscanResponse {
-  status: string
-  message: string
-  result: EtherscanLogResult[] | string
-}
-
-let lastIndexedBlock: bigint | null = null
-let stopWatching: (() => void) | null = null
-let reconnectTimer: ReturnType<typeof setTimeout> | null = null
-let reconnectAttempts = 0
-let shuttingDown = false
-let liveQueue = Promise.resolve()
-
-function log(message: string): void {
-  console.log(`[${new Date().toISOString()}] ${message}`)
-}
-
-function parseEnvNumber(name: string, fallback: number): number {
-  const raw = process.env[name]
-  if (!raw) return fallback
-  const parsed = Number(raw)
-  return Number.isFinite(parsed) ? parsed : fallback
-}
-
-function parseEnvBigInt(name: string, fallback: bigint): bigint {
-  const raw = process.env[name]
-  if (!raw) return fallback
-  try {
-    const value = BigInt(raw)
-    return value >= 0n ? value : fallback
-  } catch {
-    return fallback
-  }
-}
-
-function isSameAddress(a: string, b: string): boolean {
-  return a.toLowerCase() === b.toLowerCase()
-}
-
-function buildState(chainId: number, contract: string, block: bigint): IndexerState {
-  return {
-    chainId,
-    contract,
-    lastIndexedBlock: block.toString(),
-  }
-}
-
-async function persistState(
-  stateFile: string,
-  chainId: number,
-  contract: string,
-  block: bigint
-): Promise<void> {
-  lastIndexedBlock = block
-  await saveState(stateFile, buildState(chainId, contract, block))
-}
-
-function backoffDelay(attempt: number): number {
-  const delay = BASE_BACKOFF_MS * 2 ** attempt
-  return Math.min(delay, MAX_BACKOFF_MS)
-}
-
-async function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
-const parseIntAuto = (val: string): number =>
-  val.startsWith('0x') ? parseInt(val, 16) : parseInt(val, 10)
-
-function etherscanLogToViemLog(ethLog: EtherscanLogResult): Log {
-  return {
-    address: ethLog.address.toLowerCase() as `0x${string}`,
-    topics: ethLog.topics as [`0x${string}`, ...`0x${string}`[]],
-    data: ethLog.data as `0x${string}`,
-    blockNumber: BigInt(ethLog.blockNumber),
-    transactionHash: ethLog.transactionHash as `0x${string}`,
-    transactionIndex: parseIntAuto(ethLog.transactionIndex),
-    blockHash: '0x0000000000000000000000000000000000000000000000000000000000000000' as `0x${string}`,
-    logIndex: parseIntAuto(ethLog.logIndex),
-    removed: false,
-  }
-}
-
-async function fetchEtherscanLogs(params: {
-  address: string
-  topic0: string
-  fromBlock: bigint
-  toBlock: bigint | 'latest'
-}): Promise<EtherscanLogResult[]> {
-  const url = new URL(ETHERSCAN_API_URL)
-  url.searchParams.set('chainid', ETHERSCAN_CHAIN_ID)
-  url.searchParams.set('module', 'logs')
-  url.searchParams.set('action', 'getLogs')
-  url.searchParams.set('address', params.address)
-  url.searchParams.set('topic0', params.topic0)
-  url.searchParams.set('fromBlock', params.fromBlock.toString())
-  url.searchParams.set('toBlock', params.toBlock === 'latest' ? 'latest' : params.toBlock.toString())
-  if (ETHERSCAN_API_KEY) {
-    url.searchParams.set('apikey', ETHERSCAN_API_KEY)
-  }
-
-  const doFetch = async (): Promise<EtherscanLogResult[]> => {
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 30000)
-
-    try {
-      const response = await fetch(url.toString(), { signal: controller.signal })
-      if (!response.ok) {
-        throw new Error(`Etherscan API error: ${response.status}`)
-      }
-
-      const data: EtherscanResponse = await response.json()
-
-      if (isEtherscanRateLimitResponse(data)) {
-        throw new Error(`Etherscan rate limit: ${data.result}`)
-      }
-
-      if (data.status !== '1') {
-        if (data.message === 'No records found' || data.result === 'No records found') {
-          return []
-        }
-        throw new Error(`Etherscan API error: ${data.message} - ${data.result}`)
-      }
-
-      if (!Array.isArray(data.result)) {
-        return []
-      }
-
-      return data.result
-    } finally {
-      clearTimeout(timeoutId)
-    }
-  }
-
-  const result = await rateLimitedFetch(INDEXER_NAME, doFetch, (error) => {
-    if (error instanceof Error) {
-      return error.message.includes('rate limit') ||
-             error.message.includes('Max calls per sec')
-    }
-    return false
-  })
-
-  if (result.retryCount > 0) {
-    log(`Recovered from rate limit after ${result.retryCount} retries`)
-  }
-
-  return result.data
-}
-
-async function backfillWithEtherscan(params: {
-  contract: `0x${string}`
-  fromBlock: bigint
-  toBlock: bigint
-  stateFile: string
-  chainId: number
-}): Promise<void> {
-  log(`Backfilling via Etherscan API from block ${params.fromBlock} to ${params.toBlock}`)
-
-  // Use subdivision-based pagination to capture all events
-  const { logs: allLogs, stats } = await fetchLogsWithSubdivision(
-    async (fetchParams) => {
-      if (shuttingDown) return []
-      return fetchEtherscanLogs({
-        address: params.contract,
-        topic0: TRANSFER_TOPIC,
-        fromBlock: fetchParams.fromBlock,
-        toBlock: fetchParams.toBlock,
-      })
-    },
+// Build indexer configuration
+const config: IndexerConfig = {
+  name: INDEXER_NAME,
+  chainId: CHAIN_ID,
+  wsUrl: getEnv('WS_RPC_URL', ''),
+  stateFile: getEnv('STATE_FILE', 'scripts/indexer/state.json'),
+  stateContract: WAGDIE_CONTRACT,
+  startBlock: parseEnvBigInt('START_BLOCK', 15422334n),
+  startupDelayMs: getStartupDelay(INDEXER_NAME),
+  etherscan: {
+    apiUrl: 'https://api.etherscan.io/v2/api',
+    apiKey: process.env.ETHERSCAN_API_KEY,
+    chainId: '1',
+  },
+  backfillSources: [
     {
-      address: params.contract,
+      name: 'Transfer',
+      address: WAGDIE_CONTRACT,
       topic0: TRANSFER_TOPIC,
-      fromBlock: params.fromBlock,
-      toBlock: params.toBlock,
+      handler: handleTransferLogs,
     },
-    (msg) => log(msg)
-  )
-
-  log(`Fetched ${stats.totalLogs} Transfer events (${stats.apiCalls} API calls, ${stats.subdivisions} subdivisions)`)
-
-  if (stats.singleBlockOverflow) {
-    log('WARNING: Some events may have been missed due to single-block overflow')
-  }
-
-  if (allLogs.length > 0) {
-    const viemLogs = allLogs.map(etherscanLogToViemLog)
-    log(`Processing ${viemLogs.length} transfer events...`)
-    const result = await handleTransferLogs(viemLogs, { source: 'backfill', chainId: params.chainId })
-    log(`Processed ${result.processed} transfer events`)
-  } else {
-    log('No transfer events found')
-  }
-
-  await persistState(params.stateFile, params.chainId, params.contract, params.toBlock)
-  log(`Backfill complete up to block ${params.toBlock}`)
-}
-
-function scheduleReconnect(start: () => void, reason: string): void {
-  if (shuttingDown) return
-  if (reconnectTimer) return
-
-  const delay = backoffDelay(reconnectAttempts)
-  log(`Reconnecting in ${delay}ms (${reason})`)
-
-  reconnectTimer = setTimeout(() => {
-    reconnectTimer = null
-    reconnectAttempts += 1
-    start()
-  }, delay)
-}
-
-function startLiveWatch(params: {
-  client: PublicClient
-  contract: `0x${string}`
-  stateFile: string
-  chainId: number
-}): void {
-  if (shuttingDown) return
-
-  if (reconnectTimer) {
-    clearTimeout(reconnectTimer)
-    reconnectTimer = null
-  }
-
-  if (stopWatching) {
-    stopWatching()
-    stopWatching = null
-  }
-
-  const restart = () => startLiveWatch(params)
-
-  try {
-    stopWatching = params.client.watchContractEvent({
-      address: params.contract,
+  ],
+  liveWatches: [
+    {
+      name: 'Transfer',
+      address: WAGDIE_CONTRACT,
       abi: [transferEventAbi],
       eventName: 'Transfer',
-      onLogs: (logs) => {
-        liveQueue = liveQueue
-          .then(async () => {
-            if (shuttingDown) return
-            const { highestBlock, processed } = await handleTransferLogs(logs, { source: 'live', chainId: params.chainId })
-            if (processed > 0) {
-              log(`Processed ${processed} live transfers`)
-            }
-            if (highestBlock !== null) {
-              await persistState(params.stateFile, params.chainId, params.contract, highestBlock)
-            }
-            reconnectAttempts = 0
-          })
-          .catch((error) => {
-            const message = error instanceof Error ? error.message : String(error)
-            log(`Live log handling error: ${message}`)
-          })
-      },
-      onError: (error) => {
-        const message = error instanceof Error ? error.message : String(error)
-        log(`Live watch error: ${message}`)
-        scheduleReconnect(restart, message)
-      },
-    })
-
-    log('Live Transfer watch started')
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    log(`Failed to start live watch: ${message}`)
-    scheduleReconnect(restart, message)
-  }
+      handler: handleTransferLogs,
+    },
+  ],
 }
 
-async function shutdown(
-  signal: string,
-  stateFile: string,
-  chainId: number,
-  contract: string
-): Promise<void> {
-  if (shuttingDown) return
-  shuttingDown = true
-
-  log(`Received ${signal}. Shutting down.`)
-
-  if (reconnectTimer) {
-    clearTimeout(reconnectTimer)
-    reconnectTimer = null
-  }
-
-  if (stopWatching) {
-    stopWatching()
-    stopWatching = null
-  }
-
-  if (lastIndexedBlock !== null) {
-    await saveState(stateFile, buildState(chainId, contract, lastIndexedBlock))
-  }
-
-  process.exit(0)
+// Validate required environment
+if (!config.wsUrl) {
+  console.error(`[${INDEXER_NAME}] WS_RPC_URL is required`)
+  process.exit(1)
 }
 
-async function main(): Promise<void> {
-  // Stagger startup to prevent all indexers hitting Etherscan at once
-  const startupDelay = getStartupDelay(INDEXER_NAME)
-  if (startupDelay > 0) {
-    log(`Waiting ${startupDelay}ms before starting (staggered startup)`)
-    await delay(startupDelay)
-  }
-
-  const wsUrl = process.env.WS_RPC_URL
-  if (!wsUrl) {
-    log('WS_RPC_URL is required')
-    process.exit(1)
-  }
-
-  if (!ETHERSCAN_API_KEY) {
-    log('Warning: ETHERSCAN_API_KEY not set, rate limits will be stricter')
-  }
-
-  const stateFile = process.env.STATE_FILE || DEFAULT_STATE_FILE
-  const chainId = parseEnvNumber('CHAIN_ID', 1)
-  const startBlock = parseEnvBigInt('START_BLOCK', 15422334n)
-
-  const contractAddress = WAGDIE_CONTRACT
-  const wsClient = createPublicClient({ transport: webSocket(wsUrl) })
-
-  process.on('SIGINT', () => {
-    void shutdown('SIGINT', stateFile, chainId, contractAddress)
-  })
-  process.on('SIGTERM', () => {
-    void shutdown('SIGTERM', stateFile, chainId, contractAddress)
-  })
-
-  const loadedState = await loadState(stateFile)
-  if (loadedState && isSameAddress(loadedState.contract, contractAddress) && loadedState.chainId === chainId) {
-    try {
-      lastIndexedBlock = BigInt(loadedState.lastIndexedBlock)
-      log(`Loaded state at block ${lastIndexedBlock}`)
-    } catch {
-      log('State file is invalid, starting from START_BLOCK')
-      lastIndexedBlock = startBlock > 0n ? startBlock - 1n : null
-    }
-  } else {
-    if (loadedState) {
-      log('State file does not match chain or contract, starting from START_BLOCK')
-    } else {
-      log('No state file found, starting from START_BLOCK')
-    }
-    lastIndexedBlock = startBlock > 0n ? startBlock - 1n : null
-  }
-
-  const fromBlock = lastIndexedBlock === null ? startBlock : lastIndexedBlock + 1n
-  const latestBlock = await wsClient.getBlockNumber()
-
-  if (fromBlock <= latestBlock) {
-    await backfillWithEtherscan({
-      contract: contractAddress,
-      fromBlock,
-      toBlock: latestBlock,
-      stateFile,
-      chainId,
-    })
-  } else {
-    log(`No backfill needed (from ${fromBlock} > latest ${latestBlock})`)
-  }
-
-  startLiveWatch({
-    client: wsClient,
-    contract: contractAddress,
-    stateFile,
-    chainId,
-  })
-
-  log('Transfer indexer running')
+if (!process.env.ETHERSCAN_API_KEY) {
+  console.warn(`[${INDEXER_NAME}] Warning: ETHERSCAN_API_KEY not set, rate limits will be stricter`)
 }
 
-main().catch((error) => {
+// Run the indexer
+runIndexer(config).catch((error) => {
   const message = error instanceof Error ? error.message : String(error)
-  log(`Fatal error: ${message}`)
+  console.error(`[${INDEXER_NAME}] Fatal error: ${message}`)
   process.exit(1)
 })
