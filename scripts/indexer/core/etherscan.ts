@@ -117,11 +117,7 @@ export function createEtherscanClient(opts: EtherscanClientOptions): EtherscanCl
       return false
     })
 
-    if (!result.success) {
-      throw result.error ?? new Error('Unknown Etherscan fetch error')
-    }
-
-    return result.data ?? []
+    return result.data
   }
 
   /**
