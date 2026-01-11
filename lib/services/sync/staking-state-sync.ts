@@ -223,12 +223,6 @@ async function bulkUpdateCharacterStakingState(params: {
   let updated = 0
   let failed = 0
 
-  const characterUpdateQuery = adminClient.from(CHARACTERS_TABLE) as unknown as {
-    update: (values: Record<string, unknown>) => {
-      eq: (column: string, value: number) => Promise<{ error: { message: string } | null }>
-    }
-  }
-
   // Keep concurrency reasonable to avoid overwhelming DB.
   const batchSize = 50
   const nowIso = new Date().toISOString()
@@ -238,7 +232,10 @@ async function bulkUpdateCharacterStakingState(params: {
 
     const results = await Promise.allSettled(
       batch.map(async (u) => {
-        const { error } = await characterUpdateQuery
+        // IMPORTANT: Create a fresh query builder for each update
+        // Supabase query builders are not reusable
+        const { error } = await adminClient
+          .from(CHARACTERS_TABLE)
           .update({
             location_id: u.locationId,
             staker_address: u.stakerAddress,
