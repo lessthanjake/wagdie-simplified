@@ -1,0 +1,13 @@
+# WAGDIE robots.txt
+# https://wagdie.com
+
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /map-editor/
+
+# Sitemap
+Sitemap: https://wagdie.com/sitemap.xml
+
+# Crawl-delay for politeness (optional)
+Crawl-delay: 1

@@ -5,6 +5,64 @@ import { Header } from '@/components/layout/Header'
 import { Footer } from '@/components/layout/Footer'
 import { SkipLink } from '@/components/ui'
 
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://wagdie.com'
+
+// JSON-LD Structured Data
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'Organization',
+      '@id': `${BASE_URL}/#organization`,
+      name: 'WAGDIE',
+      url: BASE_URL,
+      logo: {
+        '@type': 'ImageObject',
+        url: `${BASE_URL}/images/wagdielogo.png`,
+      },
+      sameAs: [
+        'https://twitter.com/WAGDIE_ETH',
+        'https://discord.gg/wagdie',
+        'https://opensea.io/collection/we-are-all-going-to-die',
+      ],
+      description: 'Community-driven dark fantasy NFT project where your choices shape the narrative.',
+    },
+    {
+      '@type': 'WebSite',
+      '@id': `${BASE_URL}/#website`,
+      url: BASE_URL,
+      name: 'WAGDIE - We Are All Going to Die',
+      description: 'WAGDIE NFT Community Platform - Explore characters, lore, and participate in the dark fantasy world.',
+      publisher: {
+        '@id': `${BASE_URL}/#organization`,
+      },
+      potentialAction: {
+        '@type': 'SearchAction',
+        target: {
+          '@type': 'EntryPoint',
+          urlTemplate: `${BASE_URL}/characters?search={search_term_string}`,
+        },
+        'query-input': 'required name=search_term_string',
+      },
+    },
+    {
+      '@type': 'CollectionPage',
+      '@id': `${BASE_URL}/characters#collection`,
+      url: `${BASE_URL}/characters`,
+      name: 'WAGDIE Character Collection',
+      description: 'Browse all 6,666 unique WAGDIE NFT characters.',
+      isPartOf: {
+        '@id': `${BASE_URL}/#website`,
+      },
+      about: {
+        '@type': 'CreativeWork',
+        name: 'WAGDIE NFT Collection',
+        description: 'A collection of 6,666 unique dark fantasy NFT characters on Ethereum.',
+      },
+    },
+  ],
+}
+
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
   title: 'WAGDIE - We Are All Going to Die',
@@ -41,6 +99,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark">
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+      </head>
       <body className="flex flex-col min-h-screen bg-soul-950 text-neutral-300 selection:bg-soul-blood selection:text-white">
         <Providers>
           <SkipLink />

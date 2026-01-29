@@ -56,9 +56,9 @@ export function NameEditor({
   // Display mode (not editing or not owner)
   if (!isEditMode || !isOwner) {
     return (
-      <h2 className={`text-4xl md:text-5xl font-display tracking-wider text-bone lowercase ${className}`}>
+      <h1 className={`text-4xl md:text-5xl font-display tracking-wider text-bone lowercase ${className}`}>
         {name?.toLowerCase() || 'unnamed'}
-      </h2>
+      </h1>
     )
   }
 

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Layout, Button, Card, CardHeader, CardTitle, CardContent, CardDescription, Separator, AspectRatio, Blockquote, Badge } from '@/components/ui';
 import { ScrollToTop } from '@/components/shared/ScrollToTop';
 
@@ -81,19 +82,20 @@ interface FeatureCardProps {
 
 function FeatureCard({ title, description, imageSrc, href, isExternal }: FeatureCardProps) {
   return (
-    <a 
-      href={href} 
-      target={isExternal ? '_blank' : undefined} 
-      rel={isExternal ? 'noopener noreferrer' : undefined} 
+    <a
+      href={href}
+      target={isExternal ? '_blank' : undefined}
+      rel={isExternal ? 'noopener noreferrer' : undefined}
       className="block group h-full"
     >
       <Card className="h-full overflow-hidden transition-all duration-500 hover:border-soul-accent/40 hover:shadow-[0_0_30px_rgba(200,170,110,0.1)] bg-black/40 flex flex-col">
         <div className="relative h-48 overflow-hidden border-b border-neutral-900">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <Image
             src={imageSrc}
-            alt={title}
-            className="w-full h-full object-cover grayscale-[50%] contrast-125 group-hover:grayscale-0 group-hover:scale-105 transition-all duration-1000 ease-out"
+            alt={`${title} - WAGDIE feature illustration`}
+            fill
+            sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            className="object-cover grayscale-[50%] contrast-125 group-hover:grayscale-0 group-hover:scale-105 transition-all duration-1000 ease-out"
           />
           <div className="absolute inset-0 bg-black/40 opacity-80" />
           {isExternal && (
