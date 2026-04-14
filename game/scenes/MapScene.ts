@@ -13,18 +13,9 @@ import {
   type MapLocationData,
   type MapCharacterData,
   type MapEventsData,
-  type MarkerPayload,
   type FlyToPayload,
   type EditorMode,
 } from '../EventBus';
-import {
-  type MarkerType,
-  type LayerVisibilityKey,
-  getMarkerIcon,
-  getMarkerScale,
-  getMarkerDepth,
-  isMarkerVisible,
-} from '../config/markerConfig';
 
 import {
   MAP_WIDTH,
@@ -35,38 +26,8 @@ import {
   DEFAULT_ZOOM,
 } from './map/coords';
 import { bindMapSceneEvents, type MapSceneEventHandlers } from './map/event-bindings';
-
-/**
- * Deterministic ring layout offsets for stacked character markers.
- */
-function getStackOffset(index: number): { dx: number; dy: number } {
-  if (index === 0) return { dx: 0, dy: 0 }; // First marker stays at center
-
-  const baseRadius = 14; // World units for first ring
-  const ringStep = 10; // Additional radius per ring
-  const ringSize = 8; // Markers per ring
-
-  const adjustedIndex = index - 1; // Skip center position
-  const ring = Math.floor(adjustedIndex / ringSize);
-  const positionInRing = adjustedIndex % ringSize;
-  const radius = baseRadius + ring * ringStep;
-  const angle = (2 * Math.PI * positionInRing) / ringSize;
-
-  return {
-    dx: Math.cos(angle) * radius,
-    dy: Math.sin(angle) * radius,
-  };
-}
-
-/** Internal marker data structure */
-interface MarkerData {
-  id: string;
-  type: MarkerType;
-  name: string;
-  x: number;
-  y: number;
-  data: MapLocationData | MapCharacterData | Record<string, unknown>;
-}
+import { MapMarkerManager, type MarkerData } from './map/marker-manager';
+import { TooltipController } from './map/tooltip-controller';
 
 type InteractionState =
   | { kind: 'idle' }
@@ -85,8 +46,8 @@ type InteractionState =
 
 export class MapScene extends Phaser.Scene {
   private mapImage!: Phaser.GameObjects.Image;
-  private markers: Map<string, Phaser.GameObjects.Sprite> = new Map();
-  private markerData: Map<string, MarkerData> = new Map();
+  private markerManager: MapMarkerManager | null = null;
+  private tooltipController: TooltipController | null = null;
   private layerVisibility: LayerVisibility = {
     locations: true,
     characters: true,
@@ -96,15 +57,10 @@ export class MapScene extends Phaser.Scene {
   };
 
   // Editor mode state
-  private editorMode: 'view' | 'create' | 'edit' = 'view';
+  private editorMode: EditorMode = 'view';
 
   // Unified interaction state (camera pan OR marker drag, never both)
   private interaction: InteractionState = { kind: 'idle' };
-
-  // Tooltip
-  private tooltip!: Phaser.GameObjects.Container;
-  private tooltipText!: Phaser.GameObjects.Text;
-  private tooltipBg!: Phaser.GameObjects.Rectangle;
 
   private unbindEventBusListeners: (() => void) | null = null;
 
@@ -135,8 +91,22 @@ export class MapScene extends Phaser.Scene {
     camera.setZoom(DEFAULT_ZOOM);
     camera.centerOn(MAP_WIDTH / 2, MAP_HEIGHT / 2);
 
-    // Create tooltip (hidden by default)
-    this.createTooltip();
+    this.tooltipController = new TooltipController(this);
+    this.markerManager = new MapMarkerManager({
+      scene: this,
+      getEditorMode: () => this.editorMode,
+      getLayerVisibility: () => this.layerVisibility,
+      onMarkerHover: (data) => this.onMarkerHover(data),
+      onMarkerOut: (data) => this.onMarkerOut(data),
+      onMarkerClick: (data) => this.onMarkerClick(data),
+      onBeginLocationDrag: (marker, markerId) => {
+        this.interaction = {
+          kind: 'dragging-marker',
+          marker,
+          markerId,
+        };
+      },
+    });
 
     // Set up input handlers
     this.setupInputHandlers();
@@ -146,7 +116,7 @@ export class MapScene extends Phaser.Scene {
         Object.entries(layers).forEach(([key, visible]) => {
           this.layerVisibility[key as keyof LayerVisibility] = visible as boolean;
         });
-        this.updateMarkerVisibility();
+        this.markerManager?.updateMarkerVisibility();
       },
       flyToLocation: (data: FlyToPayload) => {
         this.flyTo(data.x * COORD_SCALE, data.y * COORD_SCALE, data.zoom);
@@ -162,16 +132,10 @@ export class MapScene extends Phaser.Scene {
       },
       editorModeChanged: (data: { mode: EditorMode }) => {
         this.editorMode = data.mode;
-        this.updateMarkerDraggability();
+        this.markerManager?.updateMarkerDraggability();
       },
       locationDeleted: (data: { id: string }) => {
-        const markerId = `location-${data.id}`;
-        const marker = this.markers.get(markerId);
-        if (marker) {
-          marker.destroy();
-          this.markers.delete(markerId);
-          this.markerData.delete(markerId);
-        }
+        this.markerManager?.removeLocation(data.id);
       },
     };
 
@@ -188,30 +152,6 @@ export class MapScene extends Phaser.Scene {
       height: MAP_HEIGHT,
       zoom: camera.zoom,
     });
-  }
-
-  private createTooltip(): void {
-    // Create tooltip background
-    this.tooltipBg = this.add.rectangle(0, 0, 200, 40, 0x0f0f0f, 0.95);
-    this.tooltipBg.setStrokeStyle(2, 0xd4af37);
-    this.tooltipBg.setOrigin(0.5, 1);
-
-    // Create tooltip text
-    this.tooltipText = this.add.text(0, -20, '', {
-      fontFamily: 'serif',
-      fontSize: '14px',
-      color: '#e8e8e8',
-      align: 'center',
-    });
-    this.tooltipText.setOrigin(0.5, 0.5);
-
-    // Create container
-    this.tooltip = this.add.container(0, 0, [this.tooltipBg, this.tooltipText]);
-    this.tooltip.setDepth(1000);
-    this.tooltip.setVisible(false);
-
-    // Make tooltip follow camera
-    this.tooltip.setScrollFactor(0);
   }
 
   private setupInputHandlers(): void {
@@ -318,7 +258,7 @@ export class MapScene extends Phaser.Scene {
           y,
         });
 
-        // Always clear interaction so camera pan cannot remain \"stuck\"
+        // Always clear interaction so camera pan cannot remain "stuck"
         this.interaction = { kind: 'idle' };
         return;
       }
@@ -333,7 +273,7 @@ export class MapScene extends Phaser.Scene {
     this.input.on('pointerupoutside', () => {
       if (this.interaction.kind === 'dragging-marker') {
         // Restore original position from stored marker data (behavior preserved)
-        const data = this.markerData.get(this.interaction.markerId);
+        const data = this.markerManager?.getMarkerData(this.interaction.markerId);
         if (data) {
           this.interaction.marker.setPosition(data.x, data.y);
         }
@@ -404,118 +344,14 @@ export class MapScene extends Phaser.Scene {
    * Add or update location markers
    */
   public updateLocations(locations: MapLocationData[]): void {
-    locations.forEach((location) => {
-      const coords = location.metadata?.center || location.htmlcoordinates;
-      if (!coords) return;
-
-      const x = coords[0] * COORD_SCALE;
-      const y = coords[1] * COORD_SCALE;
-      const id = `location-${location.id}`;
-
-      this.createOrUpdateMarker({
-        id,
-        type: 'location',
-        name: location.name,
-        x,
-        y,
-        data: location,
-      });
-    });
+    this.markerManager?.updateLocations(locations);
   }
 
   /**
    * Add or update character markers
    */
   public updateCharacters(characters: MapCharacterData[]): void {
-    // Reconcile existing character markers with the incoming payload.
-    // Important for wallet-only pin rendering: when the wallet changes or disconnects,
-    // React will send a different (possibly empty) list and we must remove stale pins.
-    const desiredIds = new Set<string>(
-      characters.map((c) => `character-${c.character_token_id}`)
-    );
-
-    // Remove character markers that are no longer in the payload
-    for (const [id, data] of Array.from(this.markerData.entries())) {
-      if (data.type !== 'character') continue;
-      if (desiredIds.has(id)) continue;
-
-      const marker = this.markers.get(id);
-      if (marker) {
-        marker.destroy();
-      }
-      this.markers.delete(id);
-      this.markerData.delete(id);
-    }
-
-    // If there are no characters to show, we're done (pins already cleared).
-    if (characters.length === 0) return;
-
-    const charactersByLocationId = new Map<string, MapCharacterData[]>();
-
-    for (const charLocation of characters) {
-      const locationId = charLocation.location?.id;
-      if (!locationId) continue;
-
-      const list = charactersByLocationId.get(locationId);
-      if (list) list.push(charLocation);
-      else charactersByLocationId.set(locationId, [charLocation]);
-    }
-
-    // Sort each location group for stable positioning (same inputs => same offsets)
-    for (const [, list] of charactersByLocationId) {
-      list.sort((a, b) => a.character_token_id - b.character_token_id);
-    }
-
-    // Precompute world positions per token id (including offsets)
-    const positionsByTokenId = new Map<number, { x: number; y: number }>();
-
-    for (const [, list] of charactersByLocationId) {
-      const baseCenter = list.find((row) => {
-        const center = row.location?.metadata?.center;
-        return Array.isArray(center) && center.length === 2;
-      })?.location?.metadata?.center;
-
-      if (!Array.isArray(baseCenter) || baseCenter.length !== 2) {
-        continue;
-      }
-
-      const baseX = baseCenter[0] * COORD_SCALE;
-      const baseY = baseCenter[1] * COORD_SCALE;
-
-      for (let i = 0; i < list.length; i++) {
-        const row = list[i];
-        const { dx, dy } = getStackOffset(i);
-        positionsByTokenId.set(row.character_token_id, {
-          x: baseX + dx,
-          y: baseY + dy,
-        });
-      }
-    }
-
-    // Create/update markers using the computed positions (fallback to base center if not grouped)
-    characters.forEach((charLocation) => {
-      const coords = charLocation.location?.metadata?.center;
-      if (!Array.isArray(coords) || coords.length !== 2) return;
-
-      const fallbackX = coords[0] * COORD_SCALE;
-      const fallbackY = coords[1] * COORD_SCALE;
-
-      const position = positionsByTokenId.get(charLocation.character_token_id) ?? {
-        x: fallbackX,
-        y: fallbackY,
-      };
-
-      const id = `character-${charLocation.character_token_id}`;
-
-      this.createOrUpdateMarker({
-        id,
-        type: 'character',
-        name: charLocation.character_name || `Character #${charLocation.character_token_id}`,
-        x: position.x,
-        y: position.y,
-        data: charLocation,
-      });
-    });
+    this.markerManager?.updateCharacters(characters);
   }
 
   /**
@@ -523,174 +359,19 @@ export class MapScene extends Phaser.Scene {
    * Reconciles with existing markers to remove stale entries
    */
   public updateEvents(events: MapEventsData): void {
-    // Build the set of desired event IDs from incoming payload
-    const desiredIds = new Set<string>();
-
-    // Helper to generate stable IDs
-    const getEventId = (prefix: string, event: { id?: string; wikiPageID?: number | string }, index: number): string => {
-      const rawId = event.id ?? event.wikiPageID ?? index;
-      return `${prefix}-${rawId}`;
-    };
-
-    // Burns
-    events.burns?.forEach((burn, index) => {
-      if (!burn.htmlcoordinates) return;
-      const id = getEventId('burn', burn, index);
-      desiredIds.add(id);
-      const x = burn.htmlcoordinates[0] * COORD_SCALE;
-      const y = burn.htmlcoordinates[1] * COORD_SCALE;
-      this.createOrUpdateMarker({
-        id,
-        type: 'burn',
-        name: burn.name || burn.title || 'Burn Event',
-        x,
-        y,
-        data: burn,
-      });
-    });
-
-    // Deaths
-    events.deaths?.forEach((death, index) => {
-      if (!death.htmlcoordinates) return;
-      const id = getEventId('death', death, index);
-      desiredIds.add(id);
-      const x = death.htmlcoordinates[0] * COORD_SCALE;
-      const y = death.htmlcoordinates[1] * COORD_SCALE;
-      this.createOrUpdateMarker({
-        id,
-        type: 'death',
-        name: death.name || death.title || 'Death Event',
-        x,
-        y,
-        data: death,
-      });
-    });
-
-    // Fights
-    events.fights?.forEach((fight, index) => {
-      if (!fight.htmlcoordinates) return;
-      const id = getEventId('fight', fight, index);
-      desiredIds.add(id);
-      const x = fight.htmlcoordinates[0] * COORD_SCALE;
-      const y = fight.htmlcoordinates[1] * COORD_SCALE;
-      this.createOrUpdateMarker({
-        id,
-        type: 'fight',
-        name: fight.name || fight.title || 'Battle Event',
-        x,
-        y,
-        data: fight,
-      });
-    });
-
-    // Remove stale event markers that are no longer in the payload
-    for (const [id, data] of Array.from(this.markerData.entries())) {
-      // Only reconcile event types (burn, death, fight)
-      if (data.type !== 'burn' && data.type !== 'death' && data.type !== 'fight') continue;
-      if (desiredIds.has(id)) continue;
-
-      const marker = this.markers.get(id);
-      if (marker) {
-        marker.destroy();
-      }
-      this.markers.delete(id);
-      this.markerData.delete(id);
-    }
-  }
-
-  /**
-   * Create or update a marker sprite
-   */
-  private createOrUpdateMarker(data: MarkerData): void {
-    let marker = this.markers.get(data.id);
-
-    const iconKey = getMarkerIcon(data.type);
-    const scale = getMarkerScale(data.type);
-
-    if (!marker) {
-      // Create new marker
-      marker = this.add.sprite(data.x, data.y, iconKey);
-      marker.setScale(scale);
-
-      // Set interactive with drag support for location markers in edit mode
-      const isDraggable = data.type === 'location' && this.editorMode === 'edit';
-      marker.setInteractive({ useHandCursor: true, draggable: isDraggable });
-      marker.setDepth(getMarkerDepth(data.type));
-
-      // Set up marker events
-      marker.on('pointerover', () => this.onMarkerHover(data));
-      marker.on('pointerout', () => this.onMarkerOut(data));
-      marker.on('pointerdown', (_pointer: Phaser.Input.Pointer) => {
-        // Start drag if in edit mode and it's a location marker (manual drag behavior preserved)
-        if (this.editorMode === 'edit' && data.type === 'location') {
-          this.interaction = {
-            kind: 'dragging-marker',
-            marker: marker!,
-            markerId: data.id,
-          };
-        }
-        this.onMarkerClick(data);
-      });
-
-      this.markers.set(data.id, marker);
-    } else {
-      // Update existing marker
-      marker.setPosition(data.x, data.y);
-    }
-
-    // Store marker data
-    this.markerData.set(data.id, data);
-
-    // Apply visibility based on layer settings
-    marker.setVisible(isMarkerVisible(data.type, this.layerVisibility));
-  }
-
-  // Removed: getIconKey, getMarkerScale, getMarkerDepth, isMarkerVisible
-  // Now using imported helpers from '../config/markerConfig'
-
-  private updateMarkerVisibility(): void {
-    this.markers.forEach((marker, id) => {
-      const data = this.markerData.get(id);
-      if (data) {
-        marker.setVisible(isMarkerVisible(data.type, this.layerVisibility));
-      }
-    });
-  }
-
-  /**
-   * Update marker draggability based on editor mode
-   */
-  private updateMarkerDraggability(): void {
-    this.markers.forEach((marker, id) => {
-      const data = this.markerData.get(id);
-      if (data && data.type === 'location') {
-        // Location markers are draggable in edit mode
-        const isDraggable = this.editorMode === 'edit';
-        if (isDraggable) {
-          marker.setInteractive({ useHandCursor: true, draggable: true });
-        } else {
-          marker.setInteractive({ useHandCursor: true, draggable: false });
-        }
-      }
-    });
+    this.markerManager?.updateEvents(events);
   }
 
   private onMarkerHover(data: MarkerData): void {
-    // Update tooltip
-    this.tooltipText.setText(data.name);
-    this.tooltipBg.setSize(this.tooltipText.width + 24, 36);
-
-    // Position tooltip in screen space
     const pointer = this.input.activePointer;
-    this.tooltip.setPosition(pointer.x, pointer.y - 20);
-    this.tooltip.setVisible(true);
+    this.tooltipController?.show(data.name, pointer.x, pointer.y);
 
     // Emit event to React
     EventBus.emit(MapEvents.MARKER_HOVERED, data);
   }
 
   private onMarkerOut(_data: MarkerData): void {
-    this.tooltip.setVisible(false);
+    this.tooltipController?.hide();
     EventBus.emit(MapEvents.MARKER_UNHOVERED);
   }
 
@@ -704,9 +385,9 @@ export class MapScene extends Phaser.Scene {
 
   update(): void {
     // Update tooltip position to follow mouse
-    if (this.tooltip.visible) {
+    if (this.tooltipController?.isVisible()) {
       const pointer = this.input.activePointer;
-      this.tooltip.setPosition(pointer.x, pointer.y - 20);
+      this.tooltipController.updatePosition(pointer.x, pointer.y);
     }
   }
 
