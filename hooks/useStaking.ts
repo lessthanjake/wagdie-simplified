@@ -9,7 +9,7 @@ import { ContractError, ContractErrorType, TransactionHash, TransactionStatus, S
 import { StakeWagdiesParams, UnstakeWagdiesParams } from '@/types/contracts'
 import { StakingService } from '@/lib/services/blockchain/staking'
 import { logError } from '@/lib/utils/errors'
-import { useTransactionStore, generateTransactionId } from '@/lib/store/transactions'
+import { useTransactionStore } from '@/lib/store/transactions'
 import {
   showTransactionPendingToast,
   showTransactionSuccessToast,
@@ -18,6 +18,7 @@ import {
   showApprovalSuccessToast,
   showErrorToast,
 } from '@/lib/utils/toast'
+import { useBlockchainTransaction } from './useBlockchainTransaction'
 
 type SyncStakingApiResult = {
   tokenId: number
@@ -147,19 +148,77 @@ interface UseStakingResult {
   approveForStaking: (tokenId?: bigint) => Promise<void>
 }
 
+type StakingOperation = 'approve' | 'stake' | 'unstake'
+
+function missingTransactionHashError(action: string): ContractError {
+  return {
+    type: ContractErrorType.UNKNOWN,
+    message: `${action} transaction did not return a hash`,
+  }
+}
+
 export function useStaking(): UseStakingResult {
   const { address } = useAccount()
   const publicClient = usePublicClient()
   const { data: walletClient } = useWalletClient()
 
-  const [isStaking, setIsStaking] = useState(false)
-  const [isUnstaking, setIsUnstaking] = useState(false)
-  const [isApproving, setIsApproving] = useState(false)
-  const [error, setError] = useState<ContractError | null>(null)
-  const [txHash, setTxHash] = useState<TransactionHash | null>(null)
-  const [txStatus, setTxStatus] = useState<TransactionStatus>(TransactionStatus.IDLE)
+  const [localError, setLocalError] = useState<ContractError | null>(null)
+  const [localStatus, setLocalStatus] = useState<TransactionStatus>(TransactionStatus.IDLE)
+  const [activeOperation, setActiveOperation] = useState<StakingOperation>('stake')
+  const [preparingOperation, setPreparingOperation] = useState<StakingOperation | null>(null)
 
   const { addTransaction, updateTransaction } = useTransactionStore()
+
+  const approvalTx = useBlockchainTransaction({
+    transactionType: 'approve-staking',
+    onPending: () => {
+      showApprovalRequiredToast('Staking Contract')
+    },
+    onSubmitted: (hash) => {
+      showTransactionPendingToast(hash)
+    },
+    onSuccess: () => {
+      showApprovalSuccessToast('Staking Contract')
+    },
+    onError: (error) => {
+      showTransactionErrorToast(error)
+      logError(error, 'approveForStaking')
+    },
+    addTransaction,
+    updateTransaction,
+  })
+
+  const stakeTx = useBlockchainTransaction({
+    transactionType: 'stake-wagdie',
+    onSubmitted: (hash) => {
+      showTransactionPendingToast(hash)
+    },
+    onSuccess: (hash) => {
+      showTransactionSuccessToast(hash, 'Character staked successfully!')
+    },
+    onError: (error) => {
+      showTransactionErrorToast(error)
+      logError(error, 'stakeWagdie')
+    },
+    addTransaction,
+    updateTransaction,
+  })
+
+  const unstakeTx = useBlockchainTransaction({
+    transactionType: 'unstake-wagdie',
+    onSubmitted: (hash) => {
+      showTransactionPendingToast(hash)
+    },
+    onSuccess: (hash) => {
+      showTransactionSuccessToast(hash, 'Character unstaked successfully!')
+    },
+    onError: (error) => {
+      showTransactionErrorToast(error)
+      logError(error, 'unstakeWagdie')
+    },
+    addTransaction,
+    updateTransaction,
+  })
 
   const checkApproval = async (tokenId?: bigint): Promise<boolean> => {
     if (!address || !publicClient) return false
@@ -208,104 +267,63 @@ export function useStaking(): UseStakingResult {
   }
 
   const approveForStaking = async (tokenId?: bigint): Promise<void> => {
+    approvalTx.reset()
+    setActiveOperation('approve')
+    setLocalError(null)
+    setLocalStatus(TransactionStatus.IDLE)
+
     if (!address || !publicClient || !walletClient) {
       const err: ContractError = {
-        type: 'unknown' as any,
+        type: ContractErrorType.UNKNOWN,
         message: 'Wallet not connected',
       }
-      setError(err)
+      setLocalError(err)
       return
     }
 
-    setIsApproving(true)
-    setError(null)
+    await approvalTx.execute(
+      {
+        address,
+        tokenId: tokenId?.toString() ?? 'all',
+      },
+      async (_params, context) => {
+        const service = new StakingService({ publicClient, walletClient })
+        await service.initialize()
 
-    const txId = generateTransactionId(
-      'approve-staking',
-      address,
-      tokenId?.toString() ?? 'all'
-    )
+        const result = await service.approveForStaking(address, tokenId)
+        if (result.error) return { error: result.error }
 
-    try {
-      const service = new StakingService({ publicClient, walletClient })
-      await service.initialize()
+        if (result.hash) {
+          context.markSubmitted(result.hash)
 
-      addTransaction(txId, 'approve-staking', {
-        status: TransactionStatus.PENDING,
-      })
+          const receipt = await service['waitForTransaction'](result.hash)
+          if (receipt.error) return { hash: result.hash, error: receipt.error }
 
-      showApprovalRequiredToast('Staking Contract')
-
-      const result = await service.approveForStaking(address, tokenId)
-
-      if (result.error) {
-        setError(result.error)
-        updateTransaction(txId, {
-          status: TransactionStatus.ERROR,
-          error: result.error.message,
-        })
-        showTransactionErrorToast(result.error)
-        return
-      }
-
-      if (result.hash) {
-        setTxHash(result.hash)
-        updateTransaction(txId, {
-          hash: result.hash,
-          status: TransactionStatus.CONFIRMING,
-        })
-
-        showTransactionPendingToast(result.hash)
-
-        const receipt = await service['waitForTransaction'](result.hash)
-
-        if (receipt.error) {
-          setError(receipt.error)
-          updateTransaction(txId, {
-            status: TransactionStatus.ERROR,
-            error: receipt.error.message,
-          })
-          showTransactionErrorToast(receipt.error)
-        } else {
-          updateTransaction(txId, {
-            status: TransactionStatus.SUCCESS,
-          })
-          showApprovalSuccessToast('Staking Contract')
+          return { hash: result.hash }
         }
+
+        return { error: missingTransactionHashError('Staking approval') }
       }
-    } catch (err) {
-      const error: ContractError = {
-        type: 'unknown' as any,
-        message: 'Failed to approve staking',
-        originalError: err instanceof Error ? err : undefined,
-      }
-      setError(error)
-      updateTransaction(txId, {
-        status: TransactionStatus.ERROR,
-        error: error.message,
-      })
-      showTransactionErrorToast(error)
-      logError(err, 'approveForStaking')
-    } finally {
-      setIsApproving(false)
-    }
+    )
   }
 
   const stakeWagdie = async (wagdieId: number, locationId: bigint): Promise<void> => {
+    stakeTx.reset()
+    setActiveOperation('stake')
+    setLocalError(null)
+    setLocalStatus(TransactionStatus.IDLE)
+
     if (!address || !publicClient || !walletClient) {
       const err: ContractError = {
-        type: 'unknown' as any,
+        type: ContractErrorType.UNKNOWN,
         message: 'Wallet not connected',
       }
-      setError(err)
+      setLocalError(err)
       return
     }
 
-    setIsStaking(true)
-    setError(null)
-    setTxStatus(TransactionStatus.PENDING)
-
-    const txId = generateTransactionId('stake-wagdie', wagdieId.toString())
+    setLocalStatus(TransactionStatus.PENDING)
+    setPreparingOperation('stake')
 
     try {
       const service = new StakingService({ publicClient, walletClient })
@@ -316,15 +334,15 @@ export function useStaking(): UseStakingResult {
           type: ContractErrorType.INVALID_PARAMS,
           message: 'Invalid location ID',
         }
-        setError(err)
-        setTxStatus(TransactionStatus.ERROR)
+        setLocalError(err)
+        setLocalStatus(TransactionStatus.ERROR)
         return
       }
 
       const stakingEnabled = await service.isStakingEnabled()
       if (stakingEnabled.error) {
-        setError(stakingEnabled.error)
-        setTxStatus(TransactionStatus.ERROR)
+        setLocalError(stakingEnabled.error)
+        setLocalStatus(TransactionStatus.ERROR)
         showTransactionErrorToast(stakingEnabled.error)
         return
       }
@@ -334,8 +352,8 @@ export function useStaking(): UseStakingResult {
           type: ContractErrorType.CONTRACT_ERROR,
           message: 'Staking is currently disabled',
         }
-        setError(err)
-        setTxStatus(TransactionStatus.ERROR)
+        setLocalError(err)
+        setLocalStatus(TransactionStatus.ERROR)
         showErrorToast('Staking Disabled', 'Staking is currently disabled on the contract')
         return
       }
@@ -357,98 +375,68 @@ export function useStaking(): UseStakingResult {
 
       if (!isApproved) {
         const err: ContractError = {
-          type: 'contract_error' as any,
+          type: ContractErrorType.CONTRACT_ERROR,
           message: 'Please approve the staking contract first',
         }
-        setError(err)
+        setLocalError(err)
         showApprovalRequiredToast('Staking Contract')
-        setTxStatus(TransactionStatus.ERROR)
+        setLocalStatus(TransactionStatus.ERROR)
         return
       }
-
-      addTransaction(txId, 'stake-wagdie', {
-        status: TransactionStatus.PENDING,
-        metadata: { wagdieId, locationId: locationId.toString() },
-      })
 
       const params: StakeWagdiesParams[] = [{ wagdieId, locationId }]
-      const result = await service.stakeWagdies(params, address)
+      const outcome = await stakeTx.execute({ wagdieId, locationId }, async (_params, context) => {
+        const result = await service.stakeWagdies(params, address)
 
-      if (result.error) {
-        setError(result.error)
-        setTxStatus(TransactionStatus.ERROR)
-        updateTransaction(txId, {
-          status: TransactionStatus.ERROR,
-          error: result.error.message,
-        })
-        showTransactionErrorToast(result.error)
-        return
-      }
+        if (result.error) return { error: result.error }
 
-      if (result.hash) {
-        setTxHash(result.hash)
-        setTxStatus(TransactionStatus.CONFIRMING)
-        updateTransaction(txId, {
-          hash: result.hash,
-          status: TransactionStatus.CONFIRMING,
-        })
+        if (result.hash) {
+          context.markSubmitted(result.hash)
 
-        showTransactionPendingToast(result.hash)
+          const receipt = await service['waitForTransaction'](result.hash)
+          if (receipt.error) return { hash: result.hash, error: receipt.error }
 
-        const receipt = await service['waitForTransaction'](result.hash)
-
-        if (receipt.error) {
-          setError(receipt.error)
-          setTxStatus(TransactionStatus.ERROR)
-          updateTransaction(txId, {
-            status: TransactionStatus.ERROR,
-            error: receipt.error.message,
-          })
-          showTransactionErrorToast(receipt.error)
-        } else {
-          setTxStatus(TransactionStatus.SUCCESS)
-          updateTransaction(txId, {
-            status: TransactionStatus.SUCCESS,
-          })
-          showTransactionSuccessToast(result.hash, 'Character staked successfully!')
-
-          await syncStakingStateToDb({ tokenId: wagdieId, action: 'stake' })
+          return { hash: result.hash }
         }
+
+        return { error: missingTransactionHashError('Stake') }
+      })
+
+      if (outcome.success && !outcome.superseded) {
+        await syncStakingStateToDb({ tokenId: wagdieId, action: 'stake' })
       }
     } catch (err) {
       const error: ContractError = {
-        type: 'unknown' as any,
+        type: ContractErrorType.UNKNOWN,
         message: 'Failed to stake character',
         originalError: err instanceof Error ? err : undefined,
       }
-      setError(error)
-      setTxStatus(TransactionStatus.ERROR)
-      updateTransaction(txId, {
-        status: TransactionStatus.ERROR,
-        error: error.message,
-      })
+      setLocalError(error)
+      setLocalStatus(TransactionStatus.ERROR)
       showTransactionErrorToast(error)
       logError(err, 'stakeWagdie')
     } finally {
-      setIsStaking(false)
+      setPreparingOperation(null)
     }
   }
 
   const unstakeWagdie = async (wagdieId: number): Promise<void> => {
+    unstakeTx.reset()
+    setActiveOperation('unstake')
+    setLocalError(null)
+    setLocalStatus(TransactionStatus.IDLE)
+
     if (!address || !publicClient || !walletClient) {
       const err: ContractError = {
-        type: 'unknown' as any,
+        type: ContractErrorType.UNKNOWN,
         message: 'Wallet not connected',
       }
-      setError(err)
+      setLocalError(err)
       return
     }
 
-    setIsUnstaking(true)
-    setError(null)
-    setTxStatus(TransactionStatus.PENDING)
-
-    const txId = generateTransactionId('unstake-wagdie', wagdieId.toString())
+    setLocalStatus(TransactionStatus.PENDING)
+    setPreparingOperation('unstake')
 
     try {
       const service = new StakingService({ publicClient, walletClient })
@@ -463,80 +451,56 @@ export function useStaking(): UseStakingResult {
         })
       }
 
-      addTransaction(txId, 'unstake-wagdie', {
-        status: TransactionStatus.PENDING,
-        metadata: { wagdieId },
+      const params: UnstakeWagdiesParams[] = [{ wagdieId }]
+      const outcome = await unstakeTx.execute({ wagdieId }, async (_params, context) => {
+        const result = await service.unstakeWagdies(params, address)
+
+        if (result.error) return { error: result.error }
+
+        if (result.hash) {
+          context.markSubmitted(result.hash)
+
+          const receipt = await service['waitForTransaction'](result.hash)
+          if (receipt.error) return { hash: result.hash, error: receipt.error }
+
+          return { hash: result.hash }
+        }
+
+        return { error: missingTransactionHashError('Unstake') }
       })
 
-      const params: UnstakeWagdiesParams[] = [{ wagdieId }]
-      const result = await service.unstakeWagdies(params, address)
-
-      if (result.error) {
-        setError(result.error)
-        setTxStatus(TransactionStatus.ERROR)
-        updateTransaction(txId, {
-          status: TransactionStatus.ERROR,
-          error: result.error.message,
-        })
-        showTransactionErrorToast(result.error)
-        return
-      }
-
-      if (result.hash) {
-        setTxHash(result.hash)
-        setTxStatus(TransactionStatus.CONFIRMING)
-        updateTransaction(txId, {
-          hash: result.hash,
-          status: TransactionStatus.CONFIRMING,
-        })
-
-        showTransactionPendingToast(result.hash)
-
-        const receipt = await service['waitForTransaction'](result.hash)
-
-        if (receipt.error) {
-          setError(receipt.error)
-          setTxStatus(TransactionStatus.ERROR)
-          updateTransaction(txId, {
-            status: TransactionStatus.ERROR,
-            error: receipt.error.message,
-          })
-          showTransactionErrorToast(receipt.error)
-        } else {
-          setTxStatus(TransactionStatus.SUCCESS)
-          updateTransaction(txId, {
-            status: TransactionStatus.SUCCESS,
-          })
-          showTransactionSuccessToast(result.hash, 'Character unstaked successfully!')
-
-          await syncStakingStateToDb({ tokenId: wagdieId, action: 'unstake' })
-        }
+      if (outcome.success && !outcome.superseded) {
+        await syncStakingStateToDb({ tokenId: wagdieId, action: 'unstake' })
       }
     } catch (err) {
       const error: ContractError = {
-        type: 'unknown' as any,
+        type: ContractErrorType.UNKNOWN,
         message: 'Failed to unstake character',
         originalError: err instanceof Error ? err : undefined,
       }
-      setError(error)
-      setTxStatus(TransactionStatus.ERROR)
-      updateTransaction(txId, {
-        status: TransactionStatus.ERROR,
-        error: error.message,
-      })
+      setLocalError(error)
+      setLocalStatus(TransactionStatus.ERROR)
       showTransactionErrorToast(error)
       logError(err, 'unstakeWagdie')
     } finally {
-      setIsUnstaking(false)
+      setPreparingOperation(null)
     }
   }
 
+  const activeTx =
+    activeOperation === 'approve'
+      ? approvalTx
+      : activeOperation === 'unstake'
+        ? unstakeTx
+        : stakeTx
+  const txStatus = activeTx.status !== TransactionStatus.IDLE ? activeTx.status : localStatus
+
   return {
-    isStaking,
-    isUnstaking,
-    isApproving,
-    error,
-    txHash,
+    isStaking: stakeTx.isExecuting || preparingOperation === 'stake',
+    isUnstaking: unstakeTx.isExecuting || preparingOperation === 'unstake',
+    isApproving: approvalTx.isExecuting,
+    error: localError || activeTx.error,
+    txHash: activeTx.txHash,
     txStatus,
     stakeWagdie,
     unstakeWagdie,
@@ -577,7 +541,7 @@ export function useStakingStatus(wagdieId: number | null) {
       }
     } catch (err) {
       const error: ContractError = {
-        type: 'unknown' as any,
+        type: ContractErrorType.UNKNOWN,
         message: 'Failed to fetch staking status',
         originalError: err instanceof Error ? err : undefined,
       }

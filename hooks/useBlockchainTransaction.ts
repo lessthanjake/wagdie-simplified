@@ -8,7 +8,7 @@
 
 import { useState, useCallback, useRef } from 'react'
 import type { ContractError, TransactionHash, TransactionStatus } from '@/types/blockchain'
-import { TransactionStatus as TxStatus } from '@/types/blockchain'
+import { ContractErrorType, TransactionStatus as TxStatus } from '@/types/blockchain'
 
 // ============================================================================
 // Type Definitions (T008)
@@ -25,6 +25,32 @@ export interface ExecutorResult<TResult = void> {
   hash?: TransactionHash
   error?: ContractError
   result?: TResult
+}
+
+export interface TransactionExecutionOutcome<TResult = void> {
+  success: boolean
+  txId: string
+  hash?: TransactionHash
+  error?: ContractError
+  result?: TResult
+  superseded?: boolean
+}
+
+export interface TransactionExecutionContext {
+  txId: string
+  isCurrent: () => boolean
+  markSubmitted: (
+    hash: TransactionHash,
+    update?: { metadata?: Record<string, unknown> }
+  ) => void
+}
+
+type TransactionStoreData = {
+  status?: TransactionStatus
+  hash?: TransactionHash
+  error?: string
+  confirmations?: number
+  metadata?: Record<string, unknown>
 }
 
 export interface UseBlockchainTransactionOptions<TResult = void> {
@@ -44,10 +70,10 @@ export interface UseBlockchainTransactionOptions<TResult = void> {
   onError?: (error: ContractError) => void
 
   /** Add transaction to store */
-  addTransaction?: (txId: string, type: string, data: any) => void
+  addTransaction?: (txId: string, type: string, data: TransactionStoreData) => void
 
   /** Update transaction in store */
-  updateTransaction?: (txId: string, data: any) => void
+  updateTransaction?: (txId: string, data: TransactionStoreData) => void
 }
 
 export interface UseBlockchainTransactionReturn<TResult = void> {
@@ -66,8 +92,11 @@ export interface UseBlockchainTransactionReturn<TResult = void> {
   /** Execute a transaction */
   execute: <TParams>(
     params: TParams,
-    executor: (params: TParams) => Promise<ExecutorResult<TResult>>
-  ) => Promise<void>
+    executor: (
+      params: TParams,
+      context: TransactionExecutionContext
+    ) => Promise<ExecutorResult<TResult>>
+  ) => Promise<TransactionExecutionOutcome<TResult>>
 
   /** Reset state for next transaction */
   reset: () => void
@@ -78,6 +107,28 @@ export interface UseBlockchainTransactionReturn<TResult = void> {
 // ============================================================================
 
 let transactionCounter = 0
+
+function stringifyTransactionValue(value: unknown): string {
+  try {
+    return JSON.stringify(value, (_key, nestedValue) =>
+      typeof nestedValue === 'bigint' ? nestedValue.toString() : nestedValue
+    )
+  } catch {
+    return String(value)
+  }
+}
+
+function normalizeTransactionMetadata(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {}
+  }
+
+  try {
+    return JSON.parse(stringifyTransactionValue(value)) as Record<string, unknown>
+  } catch {
+    return {}
+  }
+}
 
 export function generateTransactionId(type: string, identifier: string): string {
   transactionCounter += 1
@@ -116,11 +167,40 @@ export function useBlockchainTransaction<TResult = void>(
   const execute = useCallback(
     async <TParams>(
       params: TParams,
-      executor: (params: TParams) => Promise<ExecutorResult<TResult>>
-    ): Promise<void> => {
+      executor: (
+        params: TParams,
+        context: TransactionExecutionContext
+      ) => Promise<ExecutorResult<TResult>>
+    ): Promise<TransactionExecutionOutcome<TResult>> => {
       // Generate unique transaction ID
-      const txId = generateTransactionId(transactionType, JSON.stringify(params).slice(0, 50))
+      const identifier = stringifyTransactionValue(params).slice(0, 50)
+      const txId = generateTransactionId(transactionType, identifier)
       currentTxIdRef.current = txId
+
+      let submittedHash: TransactionHash | undefined
+      let didNotifySubmitted = false
+
+      const isCurrent = () => currentTxIdRef.current === txId
+      const markSubmitted: TransactionExecutionContext['markSubmitted'] = (
+        hash,
+        update
+      ) => {
+        if (!isCurrent()) return
+
+        submittedHash = hash
+        setTxHash(hash)
+        setStatus(TxStatus.CONFIRMING)
+        updateTransaction?.(txId, {
+          hash,
+          status: TxStatus.CONFIRMING,
+          ...(update?.metadata ? { metadata: normalizeTransactionMetadata(update.metadata) } : {}),
+        })
+
+        if (!didNotifySubmitted) {
+          didNotifySubmitted = true
+          onSubmitted?.(hash)
+        }
+      }
 
       // Reset state and begin
       setIsExecuting(true)
@@ -132,54 +212,84 @@ export function useBlockchainTransaction<TResult = void>(
       onPending?.(txId)
       addTransaction?.(txId, transactionType, {
         status: TxStatus.PENDING,
-        metadata: params,
+        metadata: normalizeTransactionMetadata(params),
       })
 
       try {
         // Execute the transaction
-        const result = await executor(params)
+        const result = await executor(params, { txId, isCurrent, markSubmitted })
 
         // Check if this transaction is still current
-        if (currentTxIdRef.current !== txId) {
-          return // Superseded by another transaction
+        if (!isCurrent()) {
+          return {
+            success: false,
+            txId,
+            hash: result.hash ?? submittedHash,
+            result: result.result,
+            superseded: true,
+          }
         }
+
+        const finalHash = result.hash ?? submittedHash
 
         // Handle error
         if (result.error) {
           setError(result.error)
           setStatus(TxStatus.ERROR)
           updateTransaction?.(txId, {
+            ...(finalHash ? { hash: finalHash } : {}),
             status: TxStatus.ERROR,
             error: result.error.message,
           })
           onError?.(result.error)
           setIsExecuting(false)
-          return
+          return {
+            success: false,
+            txId,
+            hash: finalHash,
+            error: result.error,
+            result: result.result,
+          }
+        }
+
+        if (result.hash && !submittedHash) {
+          markSubmitted(result.hash)
         }
 
         // Handle success with hash
-        if (result.hash) {
-          setTxHash(result.hash)
+        if (finalHash) {
+          setTxHash(finalHash)
           setStatus(TxStatus.SUCCESS)
           updateTransaction?.(txId, {
-            hash: result.hash,
+            hash: finalHash,
             status: TxStatus.SUCCESS,
           })
-          onSubmitted?.(result.hash)
-          onSuccess?.(result.hash, result.result)
+          onSuccess?.(finalHash, result.result)
         } else {
           // Success without hash (rare case)
           setStatus(TxStatus.SUCCESS)
           updateTransaction?.(txId, { status: TxStatus.SUCCESS })
         }
+
+        return {
+          success: true,
+          txId,
+          hash: finalHash,
+          result: result.result,
+        }
       } catch (err) {
         // Check if this transaction is still current
-        if (currentTxIdRef.current !== txId) {
-          return
+        if (!isCurrent()) {
+          return {
+            success: false,
+            txId,
+            hash: submittedHash,
+            superseded: true,
+          }
         }
 
         const contractError: ContractError = {
-          type: 'unknown' as any,
+          type: ContractErrorType.UNKNOWN,
           message: err instanceof Error ? err.message : 'Transaction failed',
           originalError: err instanceof Error ? err : undefined,
         }
@@ -191,8 +301,15 @@ export function useBlockchainTransaction<TResult = void>(
           error: contractError.message,
         })
         onError?.(contractError)
+
+        return {
+          success: false,
+          txId,
+          hash: submittedHash,
+          error: contractError,
+        }
       } finally {
-        if (currentTxIdRef.current === txId) {
+        if (isCurrent()) {
           setIsExecuting(false)
         }
       }

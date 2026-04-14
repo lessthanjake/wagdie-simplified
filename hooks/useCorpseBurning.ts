@@ -5,10 +5,10 @@
 
 import { useState } from 'react'
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi'
-import { ContractError, TransactionHash, TransactionStatus } from '@/types/blockchain'
+import { ContractError, ContractErrorType, TransactionHash, TransactionStatus } from '@/types/blockchain'
 import { CorpseService } from '@/lib/services/blockchain/corpse'
 import { logError } from '@/lib/utils/errors'
-import { useTransactionStore, generateTransactionId } from '@/lib/store/transactions'
+import { useTransactionStore } from '@/lib/store/transactions'
 import {
   showTransactionPendingToast,
   showTransactionSuccessToast,
@@ -16,6 +16,7 @@ import {
   showApprovalRequiredToast,
   showApprovalSuccessToast,
 } from '@/lib/utils/toast'
+import { useBlockchainTransaction } from './useBlockchainTransaction'
 
 interface UseCorpseBurningResult {
   isBurning: boolean
@@ -31,16 +32,28 @@ interface UseCorpseBurningResult {
   fetchBalances: () => Promise<void>
 }
 
+type CorpseOperation = 'approve' | 'burn'
+
+function missingTransactionHashError(action: string): ContractError {
+  return {
+    type: ContractErrorType.UNKNOWN,
+    message: `${action} transaction did not return a hash`,
+  }
+}
+
+type BurnTransactionResult = {
+  amount: bigint
+}
+
 export function useCorpseBurning(): UseCorpseBurningResult {
   const { address } = useAccount()
   const publicClient = usePublicClient()
   const { data: walletClient } = useWalletClient()
 
-  const [isBurning, setIsBurning] = useState(false)
-  const [isApproving, setIsApproving] = useState(false)
-  const [error, setError] = useState<ContractError | null>(null)
-  const [txHash, setTxHash] = useState<TransactionHash | null>(null)
-  const [txStatus, setTxStatus] = useState<TransactionStatus>(TransactionStatus.IDLE)
+  const [localError, setLocalError] = useState<ContractError | null>(null)
+  const [localStatus, setLocalStatus] = useState<TransactionStatus>(TransactionStatus.IDLE)
+  const [activeOperation, setActiveOperation] = useState<CorpseOperation>('burn')
+  const [preparingOperation, setPreparingOperation] = useState<CorpseOperation | null>(null)
   const [corpseBalance, setCorpseBalance] = useState<bigint | null>(null)
   const [mushroomBalance, setMushroomBalance] = useState<bigint | null>(null)
 
@@ -63,6 +76,45 @@ export function useCorpseBurning(): UseCorpseBurningResult {
     }
   }
 
+  const approvalTx = useBlockchainTransaction({
+    transactionType: 'approve-corpse-burning',
+    onPending: () => {
+      showApprovalRequiredToast('Mushroom Contract')
+    },
+    onSubmitted: (hash) => {
+      showTransactionPendingToast(hash)
+    },
+    onSuccess: () => {
+      showApprovalSuccessToast('Mushroom Contract')
+    },
+    onError: (error) => {
+      showTransactionErrorToast(error)
+      logError(error, 'approveForBurning')
+    },
+    addTransaction,
+    updateTransaction,
+  })
+
+  const burnTx = useBlockchainTransaction<BurnTransactionResult>({
+    transactionType: 'burn-corpse',
+    onSubmitted: (hash) => {
+      showTransactionPendingToast(hash)
+    },
+    onSuccess: (hash, result) => {
+      const amount = result?.amount ?? 0n
+      showTransactionSuccessToast(
+        hash,
+        `Burned ${amount} corpse token${amount > 1n ? 's' : ''}!`
+      )
+    },
+    onError: (error) => {
+      showTransactionErrorToast(error)
+      logError(error, 'burnCorpse')
+    },
+    addTransaction,
+    updateTransaction,
+  })
+
   const checkApproval = async (): Promise<boolean> => {
     if (!address || !publicClient) return false
 
@@ -79,109 +131,66 @@ export function useCorpseBurning(): UseCorpseBurningResult {
   }
 
   const approveForBurning = async (): Promise<void> => {
+    approvalTx.reset()
+    setActiveOperation('approve')
+    setLocalError(null)
+    setLocalStatus(TransactionStatus.IDLE)
+
     if (!address || !publicClient || !walletClient) {
       const err: ContractError = {
-        type: 'unknown' as any,
+        type: ContractErrorType.UNKNOWN,
         message: 'Wallet not connected',
       }
-      setError(err)
+      setLocalError(err)
       return
     }
 
-    setIsApproving(true)
-    setError(null)
-
-    const txId = generateTransactionId('approve-corpse-burning', address)
-
-    try {
+    await approvalTx.execute({ address }, async (_params, context) => {
       const service = new CorpseService({ publicClient, walletClient })
       await service.initialize()
 
-      addTransaction(txId, 'approve-corpse-burning', {
-        status: TransactionStatus.PENDING,
-      })
-
-      showApprovalRequiredToast('Mushroom Contract')
-
       const result = await service.approveCorpseForBurning(address)
-
-      if (result.error) {
-        setError(result.error)
-        updateTransaction(txId, {
-          status: TransactionStatus.ERROR,
-          error: result.error.message,
-        })
-        showTransactionErrorToast(result.error)
-        return
-      }
+      if (result.error) return { error: result.error }
 
       if (result.hash) {
-        setTxHash(result.hash)
-        updateTransaction(txId, {
-          hash: result.hash,
-          status: TransactionStatus.CONFIRMING,
-        })
-
-        showTransactionPendingToast(result.hash)
+        context.markSubmitted(result.hash)
 
         const receipt = await service['waitForTransaction'](result.hash)
+        if (receipt.error) return { hash: result.hash, error: receipt.error }
 
-        if (receipt.error) {
-          setError(receipt.error)
-          updateTransaction(txId, {
-            status: TransactionStatus.ERROR,
-            error: receipt.error.message,
-          })
-          showTransactionErrorToast(receipt.error)
-        } else {
-          updateTransaction(txId, {
-            status: TransactionStatus.SUCCESS,
-          })
-          showApprovalSuccessToast('Mushroom Contract')
-        }
+        return { hash: result.hash }
       }
-    } catch (err) {
-      const error: ContractError = {
-        type: 'unknown' as any,
-        message: 'Failed to approve corpse burning',
-        originalError: err instanceof Error ? err : undefined,
-      }
-      setError(error)
-      updateTransaction(txId, {
-        status: TransactionStatus.ERROR,
-        error: error.message,
-      })
-      showTransactionErrorToast(error)
-      logError(err, 'approveForBurning')
-    } finally {
-      setIsApproving(false)
-    }
+
+      return { error: missingTransactionHashError('Corpse approval') }
+    })
   }
 
   const burnCorpse = async (amount: bigint): Promise<void> => {
+    burnTx.reset()
+    setActiveOperation('burn')
+    setLocalError(null)
+    setLocalStatus(TransactionStatus.IDLE)
+
     if (!address || !publicClient || !walletClient) {
       const err: ContractError = {
-        type: 'unknown' as any,
+        type: ContractErrorType.UNKNOWN,
         message: 'Wallet not connected',
       }
-      setError(err)
+      setLocalError(err)
       return
     }
 
     if (amount <= 0n) {
       const err: ContractError = {
-        type: 'invalid_params' as any,
+        type: ContractErrorType.INVALID_PARAMS,
         message: 'Amount must be greater than 0',
       }
-      setError(err)
+      setLocalError(err)
       return
     }
 
-    setIsBurning(true)
-    setError(null)
-    setTxStatus(TransactionStatus.PENDING)
-
-    const txId = generateTransactionId('burn-corpse', amount.toString())
+    setLocalStatus(TransactionStatus.PENDING)
+    setPreparingOperation('burn')
 
     try {
       const service = new CorpseService({ publicClient, walletClient })
@@ -191,12 +200,12 @@ export function useCorpseBurning(): UseCorpseBurningResult {
       const isApproved = await checkApproval()
       if (!isApproved) {
         const err: ContractError = {
-          type: 'contract_error' as any,
+          type: ContractErrorType.CONTRACT_ERROR,
           message: 'Please approve the mushroom contract first',
         }
-        setError(err)
+        setLocalError(err)
         showApprovalRequiredToast('Mushroom Contract')
-        setTxStatus(TransactionStatus.ERROR)
+        setLocalStatus(TransactionStatus.ERROR)
         return
       }
 
@@ -204,90 +213,62 @@ export function useCorpseBurning(): UseCorpseBurningResult {
       const balanceResult = await service.getCorpseBalance(address)
       if (balanceResult.error || (balanceResult.data && balanceResult.data < amount)) {
         const err: ContractError = {
-          type: 'insufficient_funds' as any,
+          type: ContractErrorType.INSUFFICIENT_FUNDS,
           message: 'Insufficient corpse token balance',
         }
-        setError(err)
-        setTxStatus(TransactionStatus.ERROR)
+        setLocalError(err)
+        setLocalStatus(TransactionStatus.ERROR)
         showTransactionErrorToast(err)
         return
       }
 
-      addTransaction(txId, 'burn-corpse', {
-        status: TransactionStatus.PENDING,
-        metadata: { amount: amount.toString() },
+      const outcome = await burnTx.execute({ amount }, async ({ amount }, context) => {
+        const result = await service.burnCorpse(amount, address)
+
+        if (result.error) return { error: result.error }
+
+        if (result.hash) {
+          context.markSubmitted(result.hash)
+
+          const receipt = await service['waitForTransaction'](result.hash)
+          if (receipt.error) return { hash: result.hash, error: receipt.error }
+
+          return {
+            hash: result.hash,
+            result: { amount },
+          }
+        }
+
+        return { error: missingTransactionHashError('Corpse burn') }
       })
 
-      const result = await service.burnCorpse(amount, address)
-
-      if (result.error) {
-        setError(result.error)
-        setTxStatus(TransactionStatus.ERROR)
-        updateTransaction(txId, {
-          status: TransactionStatus.ERROR,
-          error: result.error.message,
-        })
-        showTransactionErrorToast(result.error)
-        return
-      }
-
-      if (result.hash) {
-        setTxHash(result.hash)
-        setTxStatus(TransactionStatus.CONFIRMING)
-        updateTransaction(txId, {
-          hash: result.hash,
-          status: TransactionStatus.CONFIRMING,
-        })
-
-        showTransactionPendingToast(result.hash)
-
-        const receipt = await service['waitForTransaction'](result.hash)
-
-        if (receipt.error) {
-          setError(receipt.error)
-          setTxStatus(TransactionStatus.ERROR)
-          updateTransaction(txId, {
-            status: TransactionStatus.ERROR,
-            error: receipt.error.message,
-          })
-          showTransactionErrorToast(receipt.error)
-        } else {
-          setTxStatus(TransactionStatus.SUCCESS)
-          updateTransaction(txId, {
-            status: TransactionStatus.SUCCESS,
-          })
-          showTransactionSuccessToast(
-            result.hash,
-            `Burned ${amount} corpse token${amount > 1n ? 's' : ''}!`
-          )
-          // Refresh balances
-          await fetchBalances()
-        }
+      if (outcome.success && !outcome.superseded) {
+        // Refresh balances
+        await fetchBalances()
       }
     } catch (err) {
       const error: ContractError = {
-        type: 'unknown' as any,
+        type: ContractErrorType.UNKNOWN,
         message: 'Failed to burn corpse tokens',
         originalError: err instanceof Error ? err : undefined,
       }
-      setError(error)
-      setTxStatus(TransactionStatus.ERROR)
-      updateTransaction(txId, {
-        status: TransactionStatus.ERROR,
-        error: error.message,
-      })
+      setLocalError(error)
+      setLocalStatus(TransactionStatus.ERROR)
       showTransactionErrorToast(error)
       logError(err, 'burnCorpse')
     } finally {
-      setIsBurning(false)
+      setPreparingOperation(null)
     }
   }
 
+  const activeTx = activeOperation === 'approve' ? approvalTx : burnTx
+  const txStatus = activeTx.status !== TransactionStatus.IDLE ? activeTx.status : localStatus
+
   return {
-    isBurning,
-    isApproving,
-    error,
-    txHash,
+    isBurning: burnTx.isExecuting || preparingOperation === 'burn',
+    isApproving: approvalTx.isExecuting,
+    error: localError || activeTx.error,
+    txHash: activeTx.txHash,
     txStatus,
     corpseBalance,
     mushroomBalance,

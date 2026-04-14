@@ -8,7 +8,7 @@
 
 import { useState, useCallback } from 'react'
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi'
-import { ContractError, TransactionStatus } from '@/types/blockchain'
+import { ContractError, ContractErrorType, TransactionStatus } from '@/types/blockchain'
 import { SpreadService } from '@/lib/services/blockchain/spread'
 import { logError } from '@/lib/utils/errors'
 import { useTransactionStore } from '@/lib/store/transactions'
@@ -46,8 +46,8 @@ export function useSpread(): UseSpreadResult {
   // Infect transaction using shared utility
   const infectTx = useBlockchainTransaction({
     transactionType: 'infect-wagdie',
-    onPending: (txId) => {
-      addTransaction(txId, 'infect-wagdie', { status: TransactionStatus.PENDING })
+    onSubmitted: (hash) => {
+      showTransactionPendingToast(hash)
     },
     onSuccess: (hash) => {
       showTransactionSuccessToast(hash, 'Character infected successfully!')
@@ -63,10 +63,10 @@ export function useSpread(): UseSpreadResult {
   // Spread transaction using shared utility
   const spreadTx = useBlockchainTransaction({
     transactionType: 'spread-infections',
-    onPending: (txId) => {
-      addTransaction(txId, 'spread-infections', { status: TransactionStatus.PENDING })
+    onSubmitted: (hash) => {
+      showTransactionPendingToast(hash)
     },
-    onSuccess: (hash, result) => {
+    onSuccess: (hash) => {
       showTransactionSuccessToast(hash, `Infections spread successfully!`)
     },
     onError: (error) => {
@@ -104,11 +104,11 @@ export function useSpread(): UseSpreadResult {
   const infectWagdie = useCallback(
     async (tokenId: bigint): Promise<void> => {
       if (!address || !publicClient || !walletClient) {
-        showTransactionErrorToast({ type: 'unknown' as any, message: 'Wallet not connected' })
+        showTransactionErrorToast({ type: ContractErrorType.UNKNOWN, message: 'Wallet not connected' })
         return
       }
 
-      await infectTx.execute({ tokenId }, async ({ tokenId }) => {
+      await infectTx.execute({ tokenId }, async ({ tokenId }, context) => {
         const service = new SpreadService({ publicClient, walletClient })
         await service.initialize()
 
@@ -122,7 +122,7 @@ export function useSpread(): UseSpreadResult {
         if (balanceResult.error || (balanceResult.data && balanceResult.data < price)) {
           return {
             error: {
-              type: 'insufficient_funds' as any,
+              type: ContractErrorType.INSUFFICIENT_FUNDS,
               message: `Insufficient ETH. Required: ${formatEther(price)} ETH`,
             },
           }
@@ -133,10 +133,10 @@ export function useSpread(): UseSpreadResult {
         if (result.error) return { error: result.error }
 
         if (result.hash) {
-          showTransactionPendingToast(result.hash)
+          context.markSubmitted(result.hash)
           // Wait for confirmation
           const receipt = await service['waitForTransaction'](result.hash)
-          if (receipt.error) return { error: receipt.error }
+          if (receipt.error) return { hash: result.hash, error: receipt.error }
           return { hash: result.hash }
         }
 
@@ -149,11 +149,11 @@ export function useSpread(): UseSpreadResult {
   const spreadInfections = useCallback(
     async (quantity: bigint): Promise<void> => {
       if (!address || !publicClient || !walletClient) {
-        showTransactionErrorToast({ type: 'unknown' as any, message: 'Wallet not connected' })
+        showTransactionErrorToast({ type: ContractErrorType.UNKNOWN, message: 'Wallet not connected' })
         return
       }
 
-      await spreadTx.execute({ quantity }, async ({ quantity }) => {
+      await spreadTx.execute({ quantity }, async ({ quantity }, context) => {
         const service = new SpreadService({ publicClient, walletClient })
         await service.initialize()
 
@@ -167,7 +167,7 @@ export function useSpread(): UseSpreadResult {
         if (balanceResult.error || (balanceResult.data && balanceResult.data < totalCost)) {
           return {
             error: {
-              type: 'insufficient_funds' as any,
+              type: ContractErrorType.INSUFFICIENT_FUNDS,
               message: `Insufficient ETH. Required: ${formatEther(totalCost)} ETH`,
             },
           }
@@ -178,10 +178,10 @@ export function useSpread(): UseSpreadResult {
         if (result.error) return { error: result.error }
 
         if (result.hash) {
-          showTransactionPendingToast(result.hash)
+          context.markSubmitted(result.hash)
           // Wait for confirmation
           const receipt = await service['waitForTransaction'](result.hash)
-          if (receipt.error) return { error: receipt.error }
+          if (receipt.error) return { hash: result.hash, error: receipt.error }
           return { hash: result.hash }
         }
 

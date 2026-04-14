@@ -5,11 +5,16 @@
 
 import { useState } from 'react'
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi'
-import { ContractError, TransactionHash, TransactionStatus } from '@/types/blockchain'
+import { ContractError, ContractErrorType, TransactionHash, TransactionStatus } from '@/types/blockchain'
 import { SearConcordsParams } from '@/types/contracts'
-import { SearingService, SearingStatus } from '@/lib/services/blockchain/searing'
+import {
+  SearingApprovalStatus,
+  SearingConcordBalance,
+  SearingService,
+  SearingStatus,
+} from '@/lib/services/blockchain/searing'
 import { logError } from '@/lib/utils/errors'
-import { useTransactionStore, generateTransactionId } from '@/lib/store/transactions'
+import { useTransactionStore } from '@/lib/store/transactions'
 import {
   showTransactionPendingToast,
   showTransactionSuccessToast,
@@ -17,6 +22,19 @@ import {
   showApprovalRequiredToast,
   showApprovalSuccessToast,
 } from '@/lib/utils/toast'
+import { useBlockchainTransaction } from './useBlockchainTransaction'
+
+const defaultApprovalStatus: SearingApprovalStatus = {
+  isWagdieApproved: false,
+  isConcordApproved: false,
+  isFullyApproved: false,
+}
+
+export interface SearingTransactionResult {
+  success: boolean
+  hash?: TransactionHash
+  error?: ContractError
+}
 
 interface UseSearingResult {
   isSearing: boolean
@@ -24,227 +42,323 @@ interface UseSearingResult {
   error: ContractError | null
   txHash: TransactionHash | null
   txStatus: TransactionStatus
-  searConcords: (wagdieId: number, concordId: number) => Promise<void>
+  approvalStatus: SearingApprovalStatus | null
+  searConcords: (wagdieId: number, concordId: number) => Promise<SearingTransactionResult>
   checkApproval: () => Promise<boolean>
+  checkApprovalStatus: () => Promise<SearingApprovalStatus>
   approveForSearing: () => Promise<void>
+  getConcordBalance: (concordId: number) => Promise<SearingConcordBalance | null>
+  getConcordBalances: (concordIds: number[]) => Promise<SearingConcordBalance[]>
 }
+
+type SearingOperation = 'approve' | 'sear'
 
 export function useSearing(): UseSearingResult {
   const { address } = useAccount()
   const publicClient = usePublicClient()
   const { data: walletClient } = useWalletClient()
 
-  const [isSearing, setIsSearing] = useState(false)
-  const [isApproving, setIsApproving] = useState(false)
-  const [error, setError] = useState<ContractError | null>(null)
-  const [txHash, setTxHash] = useState<TransactionHash | null>(null)
-  const [txStatus, setTxStatus] = useState<TransactionStatus>(TransactionStatus.IDLE)
+  const [localError, setLocalError] = useState<ContractError | null>(null)
+  const [localStatus, setLocalStatus] = useState<TransactionStatus>(TransactionStatus.IDLE)
+  const [activeOperation, setActiveOperation] = useState<SearingOperation>('sear')
+  const [preparingOperation, setPreparingOperation] = useState<SearingOperation | null>(null)
+  const [approvalStatus, setApprovalStatus] = useState<SearingApprovalStatus | null>(null)
 
   const { addTransaction, updateTransaction } = useTransactionStore()
 
-  const checkApproval = async (): Promise<boolean> => {
-    if (!address || !publicClient) return false
+  const createService = async (): Promise<SearingService | null> => {
+    if (!publicClient) return null
+
+    const service = new SearingService({ publicClient, walletClient })
+    await service.initialize()
+    return service
+  }
+
+  const approvalTx = useBlockchainTransaction({
+    transactionType: 'approve-searing',
+    onPending: () => {
+      showApprovalRequiredToast('Searing Contract')
+    },
+    onSubmitted: (hash) => {
+      showTransactionPendingToast(hash)
+    },
+    onSuccess: () => {
+      setApprovalStatus({
+        isWagdieApproved: true,
+        isConcordApproved: true,
+        isFullyApproved: true,
+      })
+      showApprovalSuccessToast('Searing Contract')
+    },
+    onError: (error) => {
+      showTransactionErrorToast(error)
+      logError(error, 'approveForSearing')
+    },
+    addTransaction,
+    updateTransaction,
+  })
+
+  const searTx = useBlockchainTransaction({
+    transactionType: 'sear-concords',
+    onSubmitted: (hash) => {
+      showTransactionPendingToast(hash)
+    },
+    onSuccess: (hash) => {
+      showTransactionSuccessToast(hash, 'Character seared successfully!')
+    },
+    onError: (error) => {
+      showTransactionErrorToast(error)
+      logError(error, 'searConcords')
+    },
+    addTransaction,
+    updateTransaction,
+  })
+
+  const checkApprovalStatus = async (): Promise<SearingApprovalStatus> => {
+    if (!address || !publicClient) {
+      setApprovalStatus(defaultApprovalStatus)
+      return defaultApprovalStatus
+    }
 
     try {
-      const service = new SearingService({ publicClient, walletClient })
-      await service.initialize()
+      const service = await createService()
+      if (!service) return defaultApprovalStatus
 
-      const result = await service.isApprovedForAll(address)
-      return result.data ?? false
+      const result = await service.getApprovalStatus(address)
+      const nextStatus = result.data ?? defaultApprovalStatus
+
+      if (result.error) {
+        setLocalError(result.error)
+      }
+
+      setApprovalStatus(nextStatus)
+      return nextStatus
     } catch (err) {
-      logError(err, 'checkApproval')
-      return false
+      logError(err, 'checkApprovalStatus')
+      setApprovalStatus(defaultApprovalStatus)
+      return defaultApprovalStatus
     }
+  }
+
+  const checkApproval = async (): Promise<boolean> => {
+    const status = await checkApprovalStatus()
+    return status.isFullyApproved
   }
 
   const approveForSearing = async (): Promise<void> => {
+    approvalTx.reset()
+    setActiveOperation('approve')
+    setLocalError(null)
+    setLocalStatus(TransactionStatus.IDLE)
+
     if (!address || !publicClient || !walletClient) {
       const err: ContractError = {
-        type: 'unknown' as any,
+        type: ContractErrorType.UNKNOWN,
         message: 'Wallet not connected',
       }
-      setError(err)
+      setLocalError(err)
       return
     }
 
-    setIsApproving(true)
-    setError(null)
-
-    const txId = generateTransactionId('approve-searing', address)
-
-    try {
+    const outcome = await approvalTx.execute({ address }, async (_params, context) => {
       const service = new SearingService({ publicClient, walletClient })
       await service.initialize()
+      let submittedApprovals = 0
 
-      addTransaction(txId, 'approve-searing', {
-        status: TransactionStatus.PENDING,
+      const result = await service.approveForSearing(address, {
+        waitForConfirmation: true,
+        onApprovalTransaction: async (target, hash) => {
+          context.markSubmitted(hash, {
+            metadata: { target },
+          })
+
+          if (submittedApprovals > 0) {
+            showTransactionPendingToast(hash)
+          }
+          submittedApprovals += 1
+        },
       })
-
-      showApprovalRequiredToast('Searing Contract')
-
-      const result = await service.approveForSearing(address)
 
       if (result.error) {
-        setError(result.error)
-        updateTransaction(txId, {
-          status: TransactionStatus.ERROR,
-          error: result.error.message,
-        })
-        showTransactionErrorToast(result.error)
-        return
+        return { hash: result.hash, error: result.error }
       }
 
-      if (result.hash) {
-        setTxHash(result.hash)
-        updateTransaction(txId, {
-          hash: result.hash,
-          status: TransactionStatus.CONFIRMING,
-        })
+      return { hash: result.hash }
+    })
 
-        showTransactionPendingToast(result.hash)
-
-        const receipt = await service['waitForTransaction'](result.hash)
-
-        if (receipt.error) {
-          setError(receipt.error)
-          updateTransaction(txId, {
-            status: TransactionStatus.ERROR,
-            error: receipt.error.message,
-          })
-          showTransactionErrorToast(receipt.error)
-        } else {
-          updateTransaction(txId, {
-            status: TransactionStatus.SUCCESS,
-          })
-          showApprovalSuccessToast('Searing Contract')
-        }
-      }
-    } catch (err) {
-      const error: ContractError = {
-        type: 'unknown' as any,
-        message: 'Failed to approve searing',
-        originalError: err instanceof Error ? err : undefined,
-      }
-      setError(error)
-      updateTransaction(txId, {
-        status: TransactionStatus.ERROR,
-        error: error.message,
+    if (outcome.success && !outcome.superseded) {
+      setApprovalStatus({
+        isWagdieApproved: true,
+        isConcordApproved: true,
+        isFullyApproved: true,
       })
-      showTransactionErrorToast(error)
-      logError(err, 'approveForSearing')
-    } finally {
-      setIsApproving(false)
+
+      if (!outcome.hash) {
+        showApprovalSuccessToast('Searing Contract')
+      }
+    }
+
+    if (outcome.error) {
+      await checkApprovalStatus()
     }
   }
 
-  const searConcords = async (wagdieId: number, concordId: number): Promise<void> => {
+  const getConcordBalance = async (
+    concordId: number
+  ): Promise<SearingConcordBalance | null> => {
+    if (!address || !publicClient) return null
+
+    try {
+      const service = await createService()
+      if (!service) return null
+
+      const result = await service.getConcordBalance(address, concordId)
+
+      if (result.error) {
+        setLocalError(result.error)
+        return null
+      }
+
+      return result.data ?? null
+    } catch (err) {
+      const error: ContractError = {
+        type: ContractErrorType.UNKNOWN,
+        message: 'Failed to fetch Concord balance',
+        originalError: err instanceof Error ? err : undefined,
+      }
+      setLocalError(error)
+      logError(err, 'getConcordBalance')
+      return null
+    }
+  }
+
+  const getConcordBalances = async (
+    concordIds: number[]
+  ): Promise<SearingConcordBalance[]> => {
+    if (!address || !publicClient || concordIds.length === 0) return []
+
+    try {
+      const service = await createService()
+      if (!service) return []
+
+      const result = await service.getConcordBalances(address, concordIds)
+
+      if (result.error) {
+        setLocalError(result.error)
+        return []
+      }
+
+      return result.data ?? []
+    } catch (err) {
+      const error: ContractError = {
+        type: ContractErrorType.UNKNOWN,
+        message: 'Failed to fetch Concord balances',
+        originalError: err instanceof Error ? err : undefined,
+      }
+      setLocalError(error)
+      logError(err, 'getConcordBalances')
+      return []
+    }
+  }
+
+  const searConcords = async (
+    wagdieId: number,
+    concordId: number
+  ): Promise<SearingTransactionResult> => {
+    searTx.reset()
+    setActiveOperation('sear')
+    setLocalError(null)
+    setLocalStatus(TransactionStatus.IDLE)
+
     if (!address || !publicClient || !walletClient) {
       const err: ContractError = {
-        type: 'unknown' as any,
+        type: ContractErrorType.UNKNOWN,
         message: 'Wallet not connected',
       }
-      setError(err)
-      return
+      setLocalError(err)
+      return { success: false, error: err }
     }
 
-    setIsSearing(true)
-    setError(null)
-    setTxStatus(TransactionStatus.PENDING)
-
-    const txId = generateTransactionId('sear-concords', wagdieId.toString(), concordId.toString())
+    setLocalStatus(TransactionStatus.PENDING)
+    setPreparingOperation('sear')
 
     try {
       const service = new SearingService({ publicClient, walletClient })
       await service.initialize()
 
-      // Check if approved
+      // Check if both WAGDIE and Concord contracts are approved.
       const isApproved = await checkApproval()
       if (!isApproved) {
         const err: ContractError = {
-          type: 'contract_error' as any,
-          message: 'Please approve the searing contract first',
+          type: ContractErrorType.CONTRACT_ERROR,
+          message: 'Please approve WAGDIE and Concord access for the searing contract first',
         }
-        setError(err)
+        setLocalError(err)
         showApprovalRequiredToast('Searing Contract')
-        setTxStatus(TransactionStatus.ERROR)
-        return
+        setLocalStatus(TransactionStatus.ERROR)
+        return { success: false, error: err }
       }
-
-      addTransaction(txId, 'sear-concords', {
-        status: TransactionStatus.PENDING,
-        metadata: { wagdieId, concordId },
-      })
 
       const params: SearConcordsParams[] = [{ wagdieId, concordId }]
-      const result = await service.searConcords(params, address)
+      const outcome = await searTx.execute({ wagdieId, concordId }, async (_params, context) => {
+        const result = await service.searConcords(params, address)
 
-      if (result.error) {
-        setError(result.error)
-        setTxStatus(TransactionStatus.ERROR)
-        updateTransaction(txId, {
-          status: TransactionStatus.ERROR,
-          error: result.error.message,
-        })
-        showTransactionErrorToast(result.error)
-        return
-      }
+        if (result.error) return { error: result.error }
 
-      if (result.hash) {
-        setTxHash(result.hash)
-        setTxStatus(TransactionStatus.CONFIRMING)
-        updateTransaction(txId, {
-          hash: result.hash,
-          status: TransactionStatus.CONFIRMING,
-        })
+        if (result.hash) {
+          context.markSubmitted(result.hash)
 
-        showTransactionPendingToast(result.hash)
+          const receipt = await service['waitForTransaction'](result.hash)
+          if (receipt.error) return { hash: result.hash, error: receipt.error }
 
-        const receipt = await service['waitForTransaction'](result.hash)
-
-        if (receipt.error) {
-          setError(receipt.error)
-          setTxStatus(TransactionStatus.ERROR)
-          updateTransaction(txId, {
-            status: TransactionStatus.ERROR,
-            error: receipt.error.message,
-          })
-          showTransactionErrorToast(receipt.error)
-        } else {
-          setTxStatus(TransactionStatus.SUCCESS)
-          updateTransaction(txId, {
-            status: TransactionStatus.SUCCESS,
-          })
-          showTransactionSuccessToast(result.hash, 'Character seared successfully!')
+          return { hash: result.hash }
         }
+
+        return {
+          error: {
+            type: ContractErrorType.UNKNOWN,
+            message: 'Searing transaction did not return a hash',
+          },
+        }
+      })
+
+      return {
+        success: outcome.success,
+        hash: outcome.hash,
+        error: outcome.error,
       }
     } catch (err) {
       const error: ContractError = {
-        type: 'unknown' as any,
+        type: ContractErrorType.UNKNOWN,
         message: 'Failed to sear concords',
         originalError: err instanceof Error ? err : undefined,
       }
-      setError(error)
-      setTxStatus(TransactionStatus.ERROR)
-      updateTransaction(txId, {
-        status: TransactionStatus.ERROR,
-        error: error.message,
-      })
+      setLocalError(error)
+      setLocalStatus(TransactionStatus.ERROR)
       showTransactionErrorToast(error)
       logError(err, 'searConcords')
+      return { success: false, error }
     } finally {
-      setIsSearing(false)
+      setPreparingOperation(null)
     }
   }
 
+  const activeTx = activeOperation === 'approve' ? approvalTx : searTx
+  const txStatus = activeTx.status !== TransactionStatus.IDLE ? activeTx.status : localStatus
+
   return {
-    isSearing,
-    isApproving,
-    error,
-    txHash,
+    isSearing: searTx.isExecuting || preparingOperation === 'sear',
+    isApproving: approvalTx.isExecuting,
+    error: localError || activeTx.error,
+    txHash: activeTx.txHash,
     txStatus,
+    approvalStatus,
     searConcords,
     checkApproval,
+    checkApprovalStatus,
     approveForSearing,
+    getConcordBalance,
+    getConcordBalances,
   }
 }
 
@@ -280,7 +394,7 @@ export function useSearingStatus(wagdieId: number | null) {
       }
     } catch (err) {
       const error: ContractError = {
-        type: 'unknown' as any,
+        type: ContractErrorType.UNKNOWN,
         message: 'Failed to fetch searing status',
         originalError: err instanceof Error ? err : undefined,
       }
