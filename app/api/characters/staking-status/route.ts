@@ -5,17 +5,17 @@
  */
 
 import { syncStakingState } from '@/lib/services/sync/staking-state-sync'
-import { NextRequest, NextResponse } from 'next/server'
-import { parseCsvNumberList } from '@/lib/api/params'
+import { NextRequest, type NextResponse } from 'next/server'
+import { parseCsvPositiveIntList, parseEnumParam } from '@/lib/api/params'
+import { jsonNoStore } from '@/lib/api/responses'
 import { activityRepository } from '@/lib/repositories/activity-repository'
 
 export const dynamic = 'force-dynamic'
 
-const NO_STORE_HEADERS = {
-  'Cache-Control': 'no-store',
-} as const
-
 type StakingSource = 'db' | 'chain'
+
+const STAKING_SOURCES: readonly StakingSource[] = ['db', 'chain'] as const
+const MAX_TOKEN_IDS = 500
 
 interface StakingStatusResponse {
   tokenId: number
@@ -32,40 +32,41 @@ export async function GET(request: NextRequest): Promise<NextResponse<ApiRespons
   try {
     const searchParams = request.nextUrl.searchParams
     const tokenIdsParam = searchParams.get('tokenIds')
-    const sourceParam = searchParams.get('source')
+    const source = parseEnumParam(
+      searchParams.get('source') || null,
+      STAKING_SOURCES,
+      'db'
+    )
 
-    const source: StakingSource =
-      sourceParam === 'chain' ? 'chain' : 'db'
-
-    if (sourceParam && sourceParam !== 'db' && sourceParam !== 'chain') {
-      return NextResponse.json(
+    if (source === null) {
+      return jsonNoStore(
         { statuses: [], error: 'source must be either "db" or "chain"' },
-        { status: 400, headers: NO_STORE_HEADERS }
+        { status: 400 }
       )
     }
 
     if (!tokenIdsParam) {
-      return NextResponse.json(
+      return jsonNoStore(
         { statuses: [], error: 'tokenIds parameter is required' },
-        { status: 400, headers: NO_STORE_HEADERS }
+        { status: 400 }
       )
     }
 
     // Parse token IDs from comma-separated string
-    const tokenIds = parseCsvNumberList(tokenIdsParam, { min: 1 })
+    const tokenIdParseResult = parseCsvPositiveIntList(tokenIdsParam, {
+      maxItems: MAX_TOKEN_IDS,
+    })
+    const tokenIds = tokenIdParseResult.values
 
     if (tokenIds.length === 0) {
-      return NextResponse.json(
-        { statuses: [] },
-        { headers: NO_STORE_HEADERS }
-      )
+      return jsonNoStore({ statuses: [] })
     }
 
     // Limit to 500 token IDs per request to prevent abuse
-    if (tokenIds.length > 500) {
-      return NextResponse.json(
-        { statuses: [], error: 'Maximum 500 token IDs per request' },
-        { status: 400, headers: NO_STORE_HEADERS }
+    if (tokenIdParseResult.error) {
+      return jsonNoStore(
+        { statuses: [], error: tokenIdParseResult.error },
+        { status: 400 }
       )
     }
 
@@ -94,10 +95,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<ApiRespons
         }
       })
 
-      return NextResponse.json(
-        { statuses },
-        { headers: NO_STORE_HEADERS }
-      )
+      return jsonNoStore({ statuses })
     }
 
     // Default: Query database for staking status (location_id)
@@ -106,9 +104,9 @@ export async function GET(request: NextRequest): Promise<NextResponse<ApiRespons
       rows = await activityRepository.findStakingStatusRows(tokenIds)
     } catch (error) {
       console.error('Error fetching staking status:', error)
-      return NextResponse.json(
+      return jsonNoStore(
         { statuses: [], error: 'Failed to fetch staking status' },
-        { status: 500, headers: NO_STORE_HEADERS }
+        { status: 500 }
       )
     }
 
@@ -129,15 +127,12 @@ export async function GET(request: NextRequest): Promise<NextResponse<ApiRespons
       }
     })
 
-    return NextResponse.json(
-      { statuses },
-      { headers: NO_STORE_HEADERS }
-    )
+    return jsonNoStore({ statuses })
   } catch (error) {
     console.error('Error in staking-status API:', error)
-    return NextResponse.json(
+    return jsonNoStore(
       { statuses: [], error: 'Internal server error' },
-      { status: 500, headers: NO_STORE_HEADERS }
+      { status: 500 }
     )
   }
 }

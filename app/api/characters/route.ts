@@ -3,20 +3,47 @@
  * GET handler for character listing with filters, pagination, and sorting
  */
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { getCharacters } from '@/lib/services/character-service'
-import type { CharacterFilterTab, SortOrder } from '@/types/character'
+import { parseEnumParam, parsePositiveIntParam } from '@/lib/api/params'
+import { jsonRaw } from '@/lib/api/responses'
+import type { CharacterFilterTab, CharactersResponse, SortOrder } from '@/types/character'
+
+const CHARACTER_FILTER_TABS: readonly CharacterFilterTab[] = [
+  'all',
+  'owned',
+  'infected',
+  'cured',
+  'staked',
+  'fallen',
+] as const
+
+const SORT_ORDERS: readonly SortOrder[] = ['asc', 'desc'] as const
+
+const EMPTY_CHARACTERS_RESPONSE: CharactersResponse = {
+  characters: [],
+  hasMore: false,
+  totalCount: 0,
+}
 
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams
 
     // Parse query parameters
-    const tab = (searchParams.get('tab') || 'all') as CharacterFilterTab
+    const tab = parseEnumParam(
+      searchParams.get('tab') || null,
+      CHARACTER_FILTER_TABS,
+      'all'
+    )
     const wallet = searchParams.get('wallet') || undefined
-    const sort = (searchParams.get('sort') || 'desc') as SortOrder
-    const page = parseInt(searchParams.get('page') || '1', 10)
-    const perPage = parseInt(searchParams.get('perPage') || '50', 10)
+    const sort = parseEnumParam(searchParams.get('sort') || null, SORT_ORDERS, 'desc')
+    const page = parsePositiveIntParam(searchParams.get('page'), { defaultValue: 1, min: 1 })
+    const perPage = parsePositiveIntParam(searchParams.get('perPage'), {
+      defaultValue: 50,
+      min: 1,
+      max: 100,
+    })
     const search = searchParams.get('search') || undefined
     // Trait filter params
     const hasSheet = searchParams.get('hasSheet') === 'true'
@@ -28,22 +55,22 @@ export async function GET(request: NextRequest) {
     const mask = searchParams.get('mask') || undefined
 
     // Validate parameters
-    if (page < 1 || perPage < 1 || perPage > 100) {
-      return NextResponse.json(
+    if (page === null || perPage === null) {
+      return jsonRaw(
         { error: 'Invalid pagination parameters' },
         { status: 400 }
       )
     }
 
-    if (!['all', 'owned', 'infected', 'cured', 'staked', 'fallen'].includes(tab)) {
-      return NextResponse.json(
+    if (tab === null) {
+      return jsonRaw(
         { error: 'Invalid tab parameter' },
         { status: 400 }
       )
     }
 
-    if (!['asc', 'desc'].includes(sort)) {
-      return NextResponse.json(
+    if (sort === null) {
+      return jsonRaw(
         { error: 'Invalid sort parameter' },
         { status: 400 }
       )
@@ -51,11 +78,7 @@ export async function GET(request: NextRequest) {
 
     // Safety net: 'owned' tab without wallet returns empty (not all characters)
     if (tab === 'owned' && !wallet) {
-      return NextResponse.json({
-        characters: [],
-        hasMore: false,
-        totalCount: 0
-      })
+      return jsonRaw(EMPTY_CHARACTERS_RESPONSE)
     }
 
     // Fetch characters
@@ -74,10 +97,10 @@ export async function GET(request: NextRequest) {
       mask
     })
 
-    return NextResponse.json(result)
+    return jsonRaw(result)
   } catch (error) {
     console.error('Error fetching characters:', error)
-    return NextResponse.json(
+    return jsonRaw(
       { error: 'Failed to fetch characters' },
       { status: 500 }
     )

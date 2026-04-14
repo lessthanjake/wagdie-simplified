@@ -5,6 +5,11 @@
 
 import { NextResponse } from 'next/server'
 
+export type JsonInit = {
+  status?: number
+  headers?: HeadersInit
+}
+
 export interface ApiResponse<T = unknown> {
   success: boolean
   data?: T
@@ -16,6 +21,20 @@ export interface ApiResponse<T = unknown> {
 // ============================================================================
 // Success Responses
 // ============================================================================
+
+export function jsonRaw<T>(body: T, init?: JsonInit): NextResponse<T> {
+  return NextResponse.json(body, init)
+}
+
+export function jsonNoStore<T>(body: T, init: JsonInit = {}): NextResponse<T> {
+  const headers = new Headers(init.headers)
+  headers.set('Cache-Control', 'no-store')
+
+  return jsonRaw(body, {
+    ...init,
+    headers,
+  })
+}
 
 export function jsonOk<T>(data: T): NextResponse<ApiResponse<T>> {
   return NextResponse.json({ success: true, data })

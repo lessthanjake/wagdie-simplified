@@ -1,13 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { syncStakingState } from '@/lib/services/sync/staking-state-sync'
+import { jsonNoStore } from '@/lib/api/responses'
 
 export const dynamic = 'force-dynamic'
 
 const MAX_TOKEN_IDS = 50
-
-const NO_STORE_HEADERS = {
-  'Cache-Control': 'no-store',
-} as const
 
 type SyncResult = {
   tokenId: number
@@ -48,31 +45,31 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json(
+    return jsonNoStore(
       { results: [], error: 'Invalid JSON body' },
-      { status: 400, headers: NO_STORE_HEADERS }
+      { status: 400 }
     )
   }
 
   const tokenIds = parseTokenIds((body as { tokenIds?: unknown })?.tokenIds)
   if (!tokenIds) {
-    return NextResponse.json(
+    return jsonNoStore(
       { results: [], error: 'tokenIds must be an array of positive integers' },
-      { status: 400, headers: NO_STORE_HEADERS }
+      { status: 400 }
     )
   }
 
   if (tokenIds.length === 0) {
-    return NextResponse.json(
+    return jsonNoStore(
       { results: [], error: 'tokenIds must not be empty' },
-      { status: 400, headers: NO_STORE_HEADERS }
+      { status: 400 }
     )
   }
 
   if (tokenIds.length > MAX_TOKEN_IDS) {
-    return NextResponse.json(
+    return jsonNoStore(
       { results: [], error: `Maximum ${MAX_TOKEN_IDS} tokenIds per request` },
-      { status: 400, headers: NO_STORE_HEADERS }
+      { status: 400 }
     )
   }
 
@@ -91,13 +88,13 @@ export async function POST(request: NextRequest) {
       ...(r.error ? { error: r.error } : {}),
     }))
 
-    return NextResponse.json({ results }, { headers: NO_STORE_HEADERS })
+    return jsonNoStore({ results })
   } catch (err) {
     const message =
       err instanceof Error ? err.message : 'Failed to sync staking status'
-    return NextResponse.json(
+    return jsonNoStore(
       { results: [], error: message },
-      { status: 500, headers: NO_STORE_HEADERS }
+      { status: 500 }
     )
   }
 }
