@@ -69,7 +69,11 @@ export abstract class BaseBlockchainService {
   }
 
   /**
-   * Wait for transaction confirmation
+   * Wait for transaction confirmation.
+   *
+   * Subclasses use this internally, while hooks should call the public
+   * waitForTransactionConfirmation wrapper instead of reaching into protected
+   * members with bracket access.
    */
   protected async waitForTransaction(
     hash: `0x${string}`,
@@ -86,6 +90,16 @@ export abstract class BaseBlockchainService {
       logError(error, 'waitForTransaction')
       return { error: parsedError }
     }
+  }
+
+  /**
+   * Public helper for callers that submit a transaction and need to wait for confirmation.
+   */
+  async waitForTransactionConfirmation(
+    hash: `0x${string}`,
+    confirmations = 1
+  ): Promise<{ receipt?: TransactionReceipt; error?: ContractError }> {
+    return this.waitForTransaction(hash, confirmations)
   }
 
   /**

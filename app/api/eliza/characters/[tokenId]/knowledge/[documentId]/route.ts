@@ -5,8 +5,14 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getElizaClient } from '@/lib/eliza/client'
-import { getCharacterRecordByExternalId } from '@/lib/eliza/characterResolver'
+import {
+  findKnowledgeDocumentById,
+  getKnowledgeDocuments,
+  getKnowledgeRecordByTokenId,
+  removeKnowledgeDocumentById,
+  replaceKnowledgeDocuments,
+  toKnowledgeDocumentResponse,
+} from '@/lib/eliza/knowledge'
 
 interface RouteParams {
   params: Promise<{ tokenId: string; documentId: string }>
@@ -30,10 +36,7 @@ export async function GET(
       )
     }
 
-    const client = getElizaClient()
-
-    // Use canonical record lookup by external ID (tokenId)
-    const record = await getCharacterRecordByExternalId(client, tokenId)
+    const record = await getKnowledgeRecordByTokenId(tokenId)
 
     if (!record) {
       return NextResponse.json(
@@ -43,9 +46,10 @@ export async function GET(
     }
 
     const character = record.character as Record<string, unknown>
-    const knowledge = Array.isArray(character.knowledge) ? character.knowledge : []
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const document = knowledge.find((doc: any) => doc.id === documentId)
+    const document = findKnowledgeDocumentById(
+      getKnowledgeDocuments(character),
+      documentId
+    )
 
     if (!document) {
       return NextResponse.json(
@@ -54,16 +58,7 @@ export async function GET(
       )
     }
 
-    return NextResponse.json(
-      {
-        id: document.id,
-        path: document.path,
-        filename: document.path,
-        content: document.content,
-        size: document.content?.length || 0,
-      },
-      { status: 200 }
-    )
+    return NextResponse.json(toKnowledgeDocumentResponse(document), { status: 200 })
   } catch (error) {
     console.error('[Knowledge API] GET document error:', error)
     return NextResponse.json(
@@ -91,10 +86,7 @@ export async function DELETE(
       )
     }
 
-    const client = getElizaClient()
-
-    // Use canonical record lookup by external ID (tokenId)
-    const record = await getCharacterRecordByExternalId(client, tokenId)
+    const record = await getKnowledgeRecordByTokenId(tokenId)
 
     if (!record) {
       return NextResponse.json(
@@ -104,28 +96,20 @@ export async function DELETE(
     }
 
     const character = record.character as Record<string, unknown>
-    const currentKnowledge = Array.isArray(character.knowledge) ? character.knowledge : []
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const documentIndex = currentKnowledge.findIndex((doc: any) => doc.id === documentId)
+    const currentKnowledge = getKnowledgeDocuments(character)
+    const document = findKnowledgeDocumentById(currentKnowledge, documentId)
 
-    if (documentIndex === -1) {
+    if (!document) {
       return NextResponse.json(
         { error: 'Document not found' },
         { status: 404 }
       )
     }
 
-    // Remove the document
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const updatedKnowledge = currentKnowledge.filter((doc: any) => doc.id !== documentId)
-
-    // Update character using canonical replaceRecord
-    const updatedCharacter = {
-      ...record.character,
-      knowledge: updatedKnowledge,
-    }
-
-    await client.characters.replaceRecord(record.id, { character: updatedCharacter })
+    await replaceKnowledgeDocuments(
+      record,
+      removeKnowledgeDocumentById(currentKnowledge, documentId)
+    )
 
     return NextResponse.json(
       { success: true, message: 'Document deleted' },

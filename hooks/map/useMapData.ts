@@ -96,7 +96,6 @@ export function useMapData() {
       if (typeof window === 'undefined') return
 
       try {
-        console.log('[useMapData] Starting fetch...')
         setIsLoading(true)
         setError(null)
 
@@ -126,7 +125,6 @@ export function useMapData() {
           locationsData = locationRepo.getMockLocations()
         }
 
-        console.log('[useMapData] Locations loaded:', locationsData.length)
         setLocations(locationsData)
         await new Promise((resolve) => setTimeout(resolve, 200))
 
@@ -142,7 +140,6 @@ export function useMapData() {
 
         const stakedData = joinStakedCharacters(stakedRows, locationsData)
 
-        console.log('[useMapData] Staked characters loaded:', stakedData.length)
         setStakedCharacters(stakedData)
         await new Promise((resolve) => setTimeout(resolve, 200))
 
@@ -155,7 +152,6 @@ export function useMapData() {
         await new Promise((resolve) => setTimeout(resolve, 200))
 
         setLoadingStage('Complete')
-        console.log('[useMapData] All data loaded successfully')
       } catch (err) {
         console.error('[useMapData] Failed to fetch map data:', err)
         const message =
@@ -164,7 +160,6 @@ export function useMapData() {
         setLoadingStage('Error loading data')
       } finally {
         setIsLoading(false)
-        console.log('[useMapData] Set loading to false')
       }
     }
 

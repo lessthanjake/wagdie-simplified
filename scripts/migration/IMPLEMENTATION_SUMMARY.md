@@ -122,6 +122,7 @@ src/
   - Partial data preservation on failures
 
 - `validation-service.ts` (550 lines):
+  - `ExportValidationService` for export CLI validation
   - Schema validation for all collections
   - Record count comparison
   - SHA-256 checksum generation

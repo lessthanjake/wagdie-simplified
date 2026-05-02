@@ -45,6 +45,26 @@ export interface TransactionExecutionContext {
   ) => void
 }
 
+export interface ConfirmableTransactionService {
+  waitForTransactionConfirmation: (
+    hash: TransactionHash,
+    confirmations?: number
+  ) => Promise<{ error?: ContractError }>
+}
+
+export interface ContractTransactionResult {
+  hash?: TransactionHash
+  error?: ContractError
+}
+
+export interface ConfirmContractTransactionOptions {
+  transaction: () => Promise<ContractTransactionResult>
+  service: ConfirmableTransactionService
+  context: TransactionExecutionContext
+  missingHashError: ContractError
+  confirmations?: number
+}
+
 type TransactionStoreData = {
   status?: TransactionStatus
   hash?: TransactionHash
@@ -133,6 +153,32 @@ function normalizeTransactionMetadata(value: unknown): Record<string, unknown> {
 export function generateTransactionId(type: string, identifier: string): string {
   transactionCounter += 1
   return `${type}-${identifier}-${Date.now()}-${transactionCounter}`
+}
+
+export async function confirmContractTransaction({
+  transaction,
+  service,
+  context,
+  missingHashError,
+  confirmations,
+}: ConfirmContractTransactionOptions): Promise<ExecutorResult> {
+  const result = await transaction()
+
+  if (result.error) return { error: result.error }
+
+  if (!result.hash) {
+    return { error: missingHashError }
+  }
+
+  context.markSubmitted(result.hash)
+
+  const receipt = await service.waitForTransactionConfirmation(
+    result.hash,
+    confirmations
+  )
+  if (receipt.error) return { hash: result.hash, error: receipt.error }
+
+  return { hash: result.hash }
 }
 
 export function useBlockchainTransaction<TResult = void>(

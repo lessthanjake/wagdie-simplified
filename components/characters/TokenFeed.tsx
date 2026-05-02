@@ -5,7 +5,7 @@
 
 'use client'
 
-import React, { useEffect } from 'react';
+import React from 'react'
 import { CharacterCard } from './CharacterCard'
 import { InfiniteScroll } from '@/components/shared/InfiniteScroll'
 import type { Character } from '@/types/character'
@@ -27,17 +27,6 @@ export function TokenFeed({
   className = ''
 }: TokenFeedProps) {
   const router = useRouter()
-
-  useEffect(() => {
-    console.log('TokenFeed: Manual fetch check starting...');
-    fetch('/api/characters?perPage=5')
-      .then(res => {
-        console.log('TokenFeed: Manual fetch status:', res.status);
-        return res.json();
-      })
-      .then(data => console.log('TokenFeed: Manual fetch data:', data))
-      .catch(err => console.error('TokenFeed: Manual fetch error:', err));
-  }, []);
 
   const handleCharacterClick = (tokenId: number) => {
     router.push(`/characters/${tokenId}`)

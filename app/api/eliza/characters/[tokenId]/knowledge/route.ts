@@ -5,8 +5,13 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getElizaClient } from '@/lib/eliza/client'
-import { getCharacterRecordByExternalId } from '@/lib/eliza/characterResolver'
+import {
+  appendKnowledgeDocument,
+  getKnowledgeDocuments,
+  getKnowledgeRecordByTokenId,
+  replaceKnowledgeDocuments,
+  toKnowledgeDocumentSummary,
+} from '@/lib/eliza/knowledge'
 import { FIELD_LIMITS } from '@/types/eliza'
 import { randomUUID } from 'crypto'
 
@@ -45,10 +50,7 @@ export async function GET(
       )
     }
 
-    const client = getElizaClient()
-
-    // Use canonical record lookup by external ID (tokenId)
-    const record = await getCharacterRecordByExternalId(client, tokenId)
+    const record = await getKnowledgeRecordByTokenId(tokenId)
 
     if (!record) {
       return NextResponse.json(
@@ -57,17 +59,8 @@ export async function GET(
       )
     }
 
-    // Return knowledge documents (without full content to reduce payload)
     const character = record.character as Record<string, unknown>
-    const knowledge = Array.isArray(character.knowledge) ? character.knowledge : []
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const documents = knowledge.map((doc: any) => ({
-      id: doc.id,
-      path: doc.path,
-      // Include content preview (first 200 chars)
-      preview: doc.content?.slice(0, 200) || '',
-      size: doc.content?.length || 0,
-    }))
+    const documents = getKnowledgeDocuments(character).map(toKnowledgeDocumentSummary)
 
     return NextResponse.json({ documents }, { status: 200 })
   } catch (error) {
@@ -132,8 +125,7 @@ export async function POST(
     const content = await file.text()
 
     // Get current character using canonical record lookup
-    const client = getElizaClient()
-    const record = await getCharacterRecordByExternalId(client, tokenId)
+    const record = await getKnowledgeRecordByTokenId(tokenId)
 
     if (!record) {
       return NextResponse.json(
@@ -143,7 +135,7 @@ export async function POST(
     }
 
     const character = record.character as Record<string, unknown>
-    const currentKnowledge = Array.isArray(character.knowledge) ? character.knowledge : []
+    const currentKnowledge = getKnowledgeDocuments(character)
 
     // Check document limit
     if (currentKnowledge.length >= FIELD_LIMITS.maxKnowledgeDocs) {
@@ -160,13 +152,10 @@ export async function POST(
       content,
     }
 
-    // Update character with new knowledge using canonical replaceRecord
-    const updatedCharacter = {
-      ...record.character,
-      knowledge: [...currentKnowledge, newDocument],
-    }
-
-    await client.characters.replaceRecord(record.id, { character: updatedCharacter })
+    await replaceKnowledgeDocuments(
+      record,
+      appendKnowledgeDocument(currentKnowledge, newDocument)
+    )
 
     // Return the new document (without full content)
     return NextResponse.json(

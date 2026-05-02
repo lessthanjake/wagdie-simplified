@@ -22,7 +22,10 @@ import {
   showApprovalRequiredToast,
   showApprovalSuccessToast,
 } from '@/lib/utils/toast'
-import { useBlockchainTransaction } from './useBlockchainTransaction'
+import {
+  confirmContractTransaction,
+  useBlockchainTransaction,
+} from './useBlockchainTransaction'
 
 const defaultApprovalStatus: SearingApprovalStatus = {
   isWagdieApproved: false,
@@ -52,6 +55,13 @@ interface UseSearingResult {
 }
 
 type SearingOperation = 'approve' | 'sear'
+
+function missingTransactionHashError(action: string): ContractError {
+  return {
+    type: ContractErrorType.UNKNOWN,
+    message: `${action} transaction did not return a hash`,
+  }
+}
 
 export function useSearing(): UseSearingResult {
   const { address } = useAccount()
@@ -301,25 +311,12 @@ export function useSearing(): UseSearingResult {
 
       const params: SearConcordsParams[] = [{ wagdieId, concordId }]
       const outcome = await searTx.execute({ wagdieId, concordId }, async (_params, context) => {
-        const result = await service.searConcords(params, address)
-
-        if (result.error) return { error: result.error }
-
-        if (result.hash) {
-          context.markSubmitted(result.hash)
-
-          const receipt = await service['waitForTransaction'](result.hash)
-          if (receipt.error) return { hash: result.hash, error: receipt.error }
-
-          return { hash: result.hash }
-        }
-
-        return {
-          error: {
-            type: ContractErrorType.UNKNOWN,
-            message: 'Searing transaction did not return a hash',
-          },
-        }
+        return confirmContractTransaction({
+          transaction: () => service.searConcords(params, address),
+          service,
+          context,
+          missingHashError: missingTransactionHashError('Searing'),
+        })
       })
 
       return {

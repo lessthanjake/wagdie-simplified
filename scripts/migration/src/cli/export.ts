@@ -18,10 +18,10 @@ import { writeFile } from 'fs/promises';
 import { join } from 'path';
 import { FirestoreClient } from '../data/firestore-client.js';
 import { ExportService } from '../services/export-service.js';
-import { ValidationService } from '../services/validation-service.js';
+import { ExportValidationService } from '../services/validation-service.js';
 import { logger } from '../utils/logger.js';
 import type { ExportResult } from '../services/export-service.js';
-import type { ValidationResult } from '../services/validation-service.js';
+import type { ExportValidationResult } from '../services/validation-service.js';
 
 const log = logger.child({ component: 'ExportCLI' });
 
@@ -132,12 +132,12 @@ async function main() {
     // Run validation if requested
     if (config.validate) {
       log.info('Starting validation');
-      const validationService = new ValidationService(firestoreClient, {
+      const validationService = new ExportValidationService(firestoreClient, {
         exportDir: config.outputDir,
         timestamp: exportResult.timestamp,
       });
 
-      const validationResult: ValidationResult = await validationService.validateAll();
+      const validationResult: ExportValidationResult = await validationService.validateAll();
 
       // Log validation results
       log.info(
