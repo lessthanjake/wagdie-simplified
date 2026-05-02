@@ -135,7 +135,7 @@ export function useSpread(): UseSpreadResult {
         if (result.hash) {
           context.markSubmitted(result.hash)
           // Wait for confirmation
-          const receipt = await service['waitForTransaction'](result.hash)
+          const receipt = await service.waitForTransactionConfirmation(result.hash)
           if (receipt.error) return { hash: result.hash, error: receipt.error }
           return { hash: result.hash }
         }
@@ -180,7 +180,7 @@ export function useSpread(): UseSpreadResult {
         if (result.hash) {
           context.markSubmitted(result.hash)
           // Wait for confirmation
-          const receipt = await service['waitForTransaction'](result.hash)
+          const receipt = await service.waitForTransactionConfirmation(result.hash)
           if (receipt.error) return { hash: result.hash, error: receipt.error }
           return { hash: result.hash }
         }

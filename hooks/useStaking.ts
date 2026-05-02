@@ -18,7 +18,10 @@ import {
   showApprovalSuccessToast,
   showErrorToast,
 } from '@/lib/utils/toast'
-import { useBlockchainTransaction } from './useBlockchainTransaction'
+import {
+  confirmContractTransaction,
+  useBlockchainTransaction,
+} from './useBlockchainTransaction'
 
 type SyncStakingApiResult = {
   tokenId: number
@@ -290,19 +293,12 @@ export function useStaking(): UseStakingResult {
         const service = new StakingService({ publicClient, walletClient })
         await service.initialize()
 
-        const result = await service.approveForStaking(address, tokenId)
-        if (result.error) return { error: result.error }
-
-        if (result.hash) {
-          context.markSubmitted(result.hash)
-
-          const receipt = await service['waitForTransaction'](result.hash)
-          if (receipt.error) return { hash: result.hash, error: receipt.error }
-
-          return { hash: result.hash }
-        }
-
-        return { error: missingTransactionHashError('Staking approval') }
+        return confirmContractTransaction({
+          transaction: () => service.approveForStaking(address, tokenId),
+          service,
+          context,
+          missingHashError: missingTransactionHashError('Staking approval'),
+        })
       }
     )
   }
@@ -386,20 +382,12 @@ export function useStaking(): UseStakingResult {
 
       const params: StakeWagdiesParams[] = [{ wagdieId, locationId }]
       const outcome = await stakeTx.execute({ wagdieId, locationId }, async (_params, context) => {
-        const result = await service.stakeWagdies(params, address)
-
-        if (result.error) return { error: result.error }
-
-        if (result.hash) {
-          context.markSubmitted(result.hash)
-
-          const receipt = await service['waitForTransaction'](result.hash)
-          if (receipt.error) return { hash: result.hash, error: receipt.error }
-
-          return { hash: result.hash }
-        }
-
-        return { error: missingTransactionHashError('Stake') }
+        return confirmContractTransaction({
+          transaction: () => service.stakeWagdies(params, address),
+          service,
+          context,
+          missingHashError: missingTransactionHashError('Stake'),
+        })
       })
 
       if (outcome.success && !outcome.superseded) {
@@ -453,20 +441,12 @@ export function useStaking(): UseStakingResult {
 
       const params: UnstakeWagdiesParams[] = [{ wagdieId }]
       const outcome = await unstakeTx.execute({ wagdieId }, async (_params, context) => {
-        const result = await service.unstakeWagdies(params, address)
-
-        if (result.error) return { error: result.error }
-
-        if (result.hash) {
-          context.markSubmitted(result.hash)
-
-          const receipt = await service['waitForTransaction'](result.hash)
-          if (receipt.error) return { hash: result.hash, error: receipt.error }
-
-          return { hash: result.hash }
-        }
-
-        return { error: missingTransactionHashError('Unstake') }
+        return confirmContractTransaction({
+          transaction: () => service.unstakeWagdies(params, address),
+          service,
+          context,
+          missingHashError: missingTransactionHashError('Unstake'),
+        })
       })
 
       if (outcome.success && !outcome.superseded) {

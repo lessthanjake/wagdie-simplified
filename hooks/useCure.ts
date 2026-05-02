@@ -14,7 +14,10 @@ import {
   showTransactionSuccessToast,
   showTransactionErrorToast,
 } from '@/lib/utils/toast'
-import { useBlockchainTransaction } from './useBlockchainTransaction'
+import {
+  confirmContractTransaction,
+  useBlockchainTransaction,
+} from './useBlockchainTransaction'
 
 interface UseCureResult {
   isCuring: boolean
@@ -152,23 +155,19 @@ export function useCure(): UseCureResult {
           mushroomsBurned: status.mushroomsRequired,
         },
         async ({ mushroomsBurned }, context) => {
-          const result = await service.burnMushroomsForCure(mushroomsBurned, address)
+          const result = await confirmContractTransaction({
+            transaction: () => service.burnMushroomsForCure(mushroomsBurned, address),
+            service,
+            context,
+            missingHashError: missingTransactionHashError(),
+          })
 
-          if (result.error) return { error: result.error }
+          if (result.error) return { hash: result.hash, error: result.error }
 
-          if (result.hash) {
-            context.markSubmitted(result.hash)
-
-            const receipt = await service['waitForTransaction'](result.hash)
-            if (receipt.error) return { hash: result.hash, error: receipt.error }
-
-            return {
-              hash: result.hash,
-              result: { mushroomsRequired: mushroomsBurned },
-            }
+          return {
+            hash: result.hash,
+            result: { mushroomsRequired: mushroomsBurned },
           }
-
-          return { error: missingTransactionHashError() }
         }
       )
 

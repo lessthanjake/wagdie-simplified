@@ -16,7 +16,10 @@ import {
   showApprovalRequiredToast,
   showApprovalSuccessToast,
 } from '@/lib/utils/toast'
-import { useBlockchainTransaction } from './useBlockchainTransaction'
+import {
+  confirmContractTransaction,
+  useBlockchainTransaction,
+} from './useBlockchainTransaction'
 
 interface UseCorpseBurningResult {
   isBurning: boolean
@@ -149,19 +152,12 @@ export function useCorpseBurning(): UseCorpseBurningResult {
       const service = new CorpseService({ publicClient, walletClient })
       await service.initialize()
 
-      const result = await service.approveCorpseForBurning(address)
-      if (result.error) return { error: result.error }
-
-      if (result.hash) {
-        context.markSubmitted(result.hash)
-
-        const receipt = await service['waitForTransaction'](result.hash)
-        if (receipt.error) return { hash: result.hash, error: receipt.error }
-
-        return { hash: result.hash }
-      }
-
-      return { error: missingTransactionHashError('Corpse approval') }
+      return confirmContractTransaction({
+        transaction: () => service.approveCorpseForBurning(address),
+        service,
+        context,
+        missingHashError: missingTransactionHashError('Corpse approval'),
+      })
     })
   }
 
@@ -223,23 +219,19 @@ export function useCorpseBurning(): UseCorpseBurningResult {
       }
 
       const outcome = await burnTx.execute({ amount }, async ({ amount }, context) => {
-        const result = await service.burnCorpse(amount, address)
+        const result = await confirmContractTransaction({
+          transaction: () => service.burnCorpse(amount, address),
+          service,
+          context,
+          missingHashError: missingTransactionHashError('Corpse burn'),
+        })
 
-        if (result.error) return { error: result.error }
+        if (result.error) return { hash: result.hash, error: result.error }
 
-        if (result.hash) {
-          context.markSubmitted(result.hash)
-
-          const receipt = await service['waitForTransaction'](result.hash)
-          if (receipt.error) return { hash: result.hash, error: receipt.error }
-
-          return {
-            hash: result.hash,
-            result: { amount },
-          }
+        return {
+          hash: result.hash,
+          result: { amount },
         }
-
-        return { error: missingTransactionHashError('Corpse burn') }
       })
 
       if (outcome.success && !outcome.superseded) {

@@ -61,7 +61,6 @@ function LorePageContent() {
     const queryString = params.toString()
     const newUrl = `/lore${queryString ? `?${queryString}` : ''}`
 
-    console.log('Updating URL to:', newUrl)
     router.push(newUrl)
   }, [currentTab, currentSort, router])
 
@@ -86,19 +85,13 @@ function LorePageContent() {
     const queryString = params.toString()
     const newUrl = `/lore${queryString ? `?${queryString}` : ''}`
 
-    console.log('Updating URL to:', newUrl)
     router.push(newUrl)
   }, [currentTab, currentSort, router])
-
-  // Add debug logging for filter state changes
-  console.log('Current filter state:', { currentTab, currentSort })
 
   // Fetch tweets with React Query (auto-refresh disabled to prevent infinite loops)
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['tweets', currentTab, currentSort, nextCursor],
     queryFn: async () => {
-      console.log('Fetching tweets with params:', { currentTab, currentSort, nextCursor })
-
       const params = new URLSearchParams({
         tab: currentTab,
         sort: currentSort,
@@ -116,7 +109,6 @@ function LorePageContent() {
       }
 
       const result = await response.json()
-      console.log('API response:', result)
       return result
     },
     refetchInterval: false, // Disabled auto-refresh to prevent infinite loading
@@ -169,26 +161,14 @@ function LorePageContent() {
 
   // Load more handler with proper safeguards
   const handleLoadMore = useCallback(() => {
-    console.log('handleLoadMore called', {
-      isLoadingMore,
-      reachedLimit,
-      hasMore,
-      hasNextCursor: !!data?.nextCursor,
-      tweetsLength: tweets.length,
-      maxTweets: MAX_TWEETS,
-      maxPages: MAX_PAGES
-    })
-
     // Don't load if we're already loading, reached limits, or no more data
     if (isLoadingMore || reachedLimit || !hasMore || !data?.nextCursor) {
-      console.log('Skipping load - blocked by safeguards')
       return
     }
 
     // Check if we've reached the page limit
     const currentPage = Math.ceil(tweets.length / 25)
     if (currentPage >= MAX_PAGES) {
-      console.log('Page limit reached', { currentPage, MAX_PAGES })
       setReachedLimit(true)
       setHasMore(false)
       return
@@ -196,13 +176,11 @@ function LorePageContent() {
 
     // Check if we're approaching the tweet limit
     if (tweets.length >= MAX_TWEETS - 25) {
-      console.log('Tweet limit approaching', { tweetsLength: tweets.length, MAX_TWEETS })
       setReachedLimit(true)
       setHasMore(false)
       return
     }
 
-    console.log('Proceeding with load more')
     setIsLoadingMore(true)
     setNextCursor(data.nextCursor)
     setIsInitialLoad(false)

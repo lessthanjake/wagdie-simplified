@@ -27,12 +27,12 @@ import type {
 import { checksumCollection, ENTITY_CHECKSUM_FIELDS } from '../utils/checksum.js';
 import { logger } from '../utils/logger.js';
 
-const log = logger.child({ component: 'ValidationService' });
+const log = logger.child({ component: 'ExportValidationService' });
 
 /**
  * Validation configuration
  */
-export interface ValidationConfig {
+export interface ExportValidationConfig {
   exportDir: string; // Directory containing exported JSON files
   timestamp: string; // Timestamp from export (for file naming)
 }
@@ -40,7 +40,7 @@ export interface ValidationConfig {
 /**
  * Complete validation result
  */
-export interface ValidationResult {
+export interface ExportValidationResult {
   success: boolean;
   timestamp: string;
   validations: EntityValidationResult[];
@@ -49,13 +49,13 @@ export interface ValidationResult {
 }
 
 /**
- * ValidationService: Validates exported data and generates integrity checksums
+ * ExportValidationService: Validates exported data and generates integrity checksums
  */
-export class ValidationService {
-  private readonly config: ValidationConfig;
+export class ExportValidationService {
+  private readonly config: ExportValidationConfig;
   private readonly firestoreClient: FirestoreClient;
 
-  constructor(firestoreClient: FirestoreClient, config: ValidationConfig) {
+  constructor(firestoreClient: FirestoreClient, config: ExportValidationConfig) {
     this.firestoreClient = firestoreClient;
     this.config = config;
   }
@@ -68,7 +68,7 @@ export class ValidationService {
    * - T021: Record count comparison
    * - T022: Checksum generation
    */
-  async validateAll(): Promise<ValidationResult> {
+  async validateAll(): Promise<ExportValidationResult> {
     log.info('Starting validation of all exported collections');
 
     const validations: EntityValidationResult[] = [];
@@ -114,7 +114,7 @@ export class ValidationService {
 
     const success = validations.every((v) => v.match) && warnings.filter((w) => w.level === 'error').length === 0;
 
-    const result: ValidationResult = {
+    const result: ExportValidationResult = {
       success,
       timestamp: new Date().toISOString(),
       validations,
@@ -524,3 +524,10 @@ export class ValidationService {
     return null;
   }
 }
+
+/**
+ * Backward-compatibility aliases for existing imports.
+ */
+export type ValidationConfig = ExportValidationConfig;
+export type ValidationResult = ExportValidationResult;
+export { ExportValidationService as ValidationService };

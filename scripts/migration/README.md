@@ -26,7 +26,8 @@ scripts/migration/
 │   │   └── verify.ts      # Verify data integrity
 │   ├── services/      # Business logic
 │   │   ├── export-service.ts        # Streaming Firestore export
-│   │   ├── validation-service.ts    # Schema & count validation
+│   │   ├── validation-service.ts    # ExportValidationService (export CLI validation)
+│   │   ├── ValidationService.ts     # Migration framework validation (Start/Resume flows)
 │   │   ├── transform-service.ts     # Data transformation
 │   │   ├── import-service.ts        # Batch PostgreSQL import
 │   │   └── verification-service.ts  # Post-migration verification

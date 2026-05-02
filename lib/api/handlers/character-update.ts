@@ -79,19 +79,14 @@ export async function handleCharacterPatch(
   tokenId: number
 ): Promise<NextResponse> {
   try {
-    console.log('[PATCH /api/characters] tokenId:', tokenId)
-
     if (isNaN(tokenId) || tokenId < 1 || tokenId > 6666) {
-      console.log('[PATCH] Invalid token ID')
       return NextResponse.json({ error: 'Invalid token ID' }, { status: 400 })
     }
 
     // Get session to verify ownership
     const session = await getSession()
-    console.log('[PATCH] Session address:', session.address)
 
     if (!session.address) {
-      console.log('[PATCH] Not authenticated - no session address')
       return NextResponse.json(
         { error: 'Not authenticated. Please sign in with your wallet.' },
         { status: 401 }
@@ -100,24 +95,16 @@ export async function handleCharacterPatch(
 
     // Get character to check ownership
     const character = await getCharacter(tokenId)
-    console.log('[PATCH] Character owner_address:', character?.owner_address)
-    console.log('[PATCH] Character staker_address:', character?.staker_address)
 
     if (!character) {
-      console.log('[PATCH] Character not found')
       return NextResponse.json({ error: 'Character not found' }, { status: 404 })
     }
 
     // Check if user is admin (can edit any character)
     const userIsAdmin = isAdmin(session.address)
-    console.log('[PATCH] User is admin:', userIsAdmin)
 
     // Verify ownership using consolidated check (includes staker_address)
     if (!canEditCharacter(character, session.address, userIsAdmin)) {
-      console.log('[PATCH] Ownership check failed')
-      console.log('[PATCH] Character owner:', character.owner_address?.toLowerCase())
-      console.log('[PATCH] Character staker:', character.staker_address?.toLowerCase())
-      console.log('[PATCH] Session user:', session.address.toLowerCase())
       return NextResponse.json(
         { error: 'You do not own this character' },
         { status: 403 }
@@ -126,7 +113,6 @@ export async function handleCharacterPatch(
 
     // Parse updates
     const updates = await request.json()
-    console.log('[PATCH] Received updates:', JSON.stringify(updates, null, 2))
 
     // Filter to allowed fields only
     const allowedUpdates: CharacterUpdate = {}
@@ -148,9 +134,7 @@ export async function handleCharacterPatch(
 
     // Validate name
     if ('name' in allowedUpdates) {
-      console.log('[PATCH] Validating name:', allowedUpdates.name)
       const result = validateName(allowedUpdates.name)
-      console.log('[PATCH] Name validation result:', result)
       if (!result.valid && result.error) {
         validationErrors.push(result.error)
       }
@@ -196,7 +180,6 @@ export async function handleCharacterPatch(
 
     // Return validation errors if any
     if (validationErrors.length > 0) {
-      console.log('[PATCH] Validation errors:', validationErrors)
       return NextResponse.json(
         { error: 'Validation failed', details: validationErrors },
         { status: 400 }
@@ -204,9 +187,7 @@ export async function handleCharacterPatch(
     }
 
     // Update character
-    console.log('[PATCH] Calling updateCharacter with:', JSON.stringify(allowedUpdates, null, 2))
     const updated = await updateCharacter(tokenId, allowedUpdates)
-    console.log('[PATCH] updateCharacter result:', updated ? 'success' : 'null/undefined')
 
     // Handle null result as an error (previously would return null to client causing UI issues)
     if (!updated) {

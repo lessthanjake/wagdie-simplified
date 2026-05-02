@@ -74,8 +74,7 @@ export async function POST(
 
     // Build update input from imported data
     // Note: SDK's UpdateCharacterInput doesn't include all Eliza character fields
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const updateData: any = {}
+    const updateData: Record<string, unknown> = {}
 
     // Import bio (required)
     if (importData.bio && importData.bio.length > 0) {

@@ -14,6 +14,12 @@ interface RouteParams {
   params: Promise<{ tokenId: string }>
 }
 
+interface KnowledgeDocument {
+  id?: string
+  path?: string
+  content?: string
+}
+
 export async function GET(
   request: NextRequest,
   { params }: RouteParams
@@ -65,12 +71,15 @@ export async function GET(
       messageExamples,
       postExamples: postExamples as string[] | undefined,
       systemPrompt: (character.system as string) || (character.systemPrompt as string) || undefined,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      knowledge: knowledge?.map((doc: any) => ({
-        id: doc.id,
-        path: doc.path,
-        content: doc.content || '',
-      })),
+      knowledge: knowledge?.map((doc) => {
+        const knowledgeDoc = doc as KnowledgeDocument
+
+        return {
+          id: knowledgeDoc.id || '',
+          path: knowledgeDoc.path || '',
+          content: knowledgeDoc.content || '',
+        }
+      }),
     }
 
     // Generate filename
