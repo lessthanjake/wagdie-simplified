@@ -8,9 +8,45 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 const CSRF_COOKIE_NAME = 'csrf-token'
+const remoteApiBaseUrl = process.env.WAGDIE_API_BASE_URL?.replace(/\/$/, '')
 
-export function middleware(request: NextRequest) {
+async function proxyApiRequest(request: NextRequest) {
+  if (!remoteApiBaseUrl || !request.nextUrl.pathname.startsWith('/api/')) {
+    return null
+  }
+
+  const destination = new URL(request.nextUrl.pathname + request.nextUrl.search, remoteApiBaseUrl)
+  const headers = new Headers(request.headers)
+
+  // Let the deployed instance see its own host/protocol rather than localhost.
+  headers.delete('host')
+  headers.delete('x-forwarded-host')
+  headers.delete('x-forwarded-proto')
+  headers.set('x-forwarded-host', destination.host)
+  headers.set('x-forwarded-proto', destination.protocol.replace(':', ''))
+
+  return fetch(destination, {
+    method: request.method,
+    headers,
+    body: request.method === 'GET' || request.method === 'HEAD' ? undefined : request.body,
+    redirect: 'manual',
+    // Required by fetch when forwarding a streamed request body in Node/undici.
+    duplex: 'half',
+  } as RequestInit & { duplex: 'half' })
+}
+
+export async function middleware(request: NextRequest) {
+  const proxiedApiResponse = await proxyApiRequest(request)
+  if (proxiedApiResponse) {
+    return proxiedApiResponse
+  }
+
   const response = NextResponse.next()
+
+  // Do not set CSRF cookies for local API routes when the remote proxy is disabled.
+  if (request.nextUrl.pathname.startsWith('/api/')) {
+    return response
+  }
 
   // Check if CSRF token cookie exists
   const existingToken = request.cookies.get(CSRF_COOKIE_NAME)
@@ -34,19 +70,19 @@ export function middleware(request: NextRequest) {
 /**
  * T040: Configure middleware matcher
  * - Runs on all page routes (sets CSRF token)
- * - Excludes static files, images, and API routes from CSRF token setting
- * - Auth endpoints are excluded from CSRF validation (they use nonce instead)
+ * - Runs on API routes only to support the optional local-dev remote API proxy
+ * - Excludes static files and images
  */
 export const config = {
   matcher: [
+    '/api/:path*',
     /*
      * Match all request paths except:
-     * - api routes (handled separately with route-level CSRF)
      * - _next/static (static files)
      * - _next/image (image optimization)
      * - favicon.ico (favicon file)
      * - public files (images, fonts, etc.)
      */
-    '/((?!api|_next/static|_next/image|favicon.ico|images|fonts).*)',
+    '/((?!_next/static|_next/image|favicon.ico|images|fonts).*)',
   ],
 }

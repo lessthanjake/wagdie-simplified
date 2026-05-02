@@ -82,17 +82,19 @@ const nextConfig = {
     return config
   },
 
-  // Add rewrites to handle WebP requests for map icons by serving PNG versions
+  // Add rewrites to handle WebP requests for map icons by serving PNG versions.
+  // `/api/*` remote dev proxying is handled in `middleware.ts` so it can run
+  // before App Router API route handlers.
   async rewrites() {
     return [
       {
         source: '/images/mapicons/:path*.webp',
-        destination: '/images/mapicons/:path*.png'
+        destination: '/images/mapicons/:path*.png',
       },
       {
         source: '/images/legendicons/:path*.webp',
-        destination: '/images/legendicons/:path*.png'
-      }
+        destination: '/images/legendicons/:path*.png',
+      },
     ]
   },
 }
