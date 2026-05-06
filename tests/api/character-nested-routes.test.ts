@@ -4,12 +4,14 @@
 
 import { NextRequest } from 'next/server'
 import { GET as getInfectionEvents } from '@/app/api/characters/[tokenId]/events/route'
+import { GET as getSearingEvents } from '@/app/api/characters/[tokenId]/searing/route'
 import { GET as getStakingEvents } from '@/app/api/characters/[tokenId]/staking/route'
 import { activityRepository } from '@/lib/repositories/activity-repository'
 
 jest.mock('@/lib/repositories/activity-repository', () => ({
   activityRepository: {
     findInfectionEvents: jest.fn(),
+    findSearingEvents: jest.fn(),
     findStakingEvents: jest.fn(),
   },
 }))
@@ -69,6 +71,51 @@ describe('Character nested event API routes', () => {
     expect(activityRepository.findInfectionEvents).toHaveBeenCalledWith(7, {
       limit: 10,
       eventType: 'cure',
+    })
+  })
+
+  it('preserves searing event invalid type response shape', async () => {
+    const response = await getSearingEvents(
+      createRequest('http://localhost/api/characters/1/searing?type=bad'),
+      createParams('1')
+    )
+
+    expect(response.status).toBe(400)
+    await expect(response.json()).resolves.toEqual({
+      error: 'Invalid event type. Must be "sear" or "tame"',
+    })
+  })
+
+  it('keeps whitespace searing event type values invalid', async () => {
+    const response = await getSearingEvents(
+      createRequest('http://localhost/api/characters/1/searing?type=%20sear%20'),
+      createParams('1')
+    )
+
+    expect(response.status).toBe(400)
+    await expect(response.json()).resolves.toEqual({
+      error: 'Invalid event type. Must be "sear" or "tame"',
+    })
+  })
+
+  it('returns searing events without success/data wrapping', async () => {
+    const events = [{ id: 'sear-1', event_type: 'sear' }]
+    ;(activityRepository.findSearingEvents as jest.Mock).mockResolvedValueOnce(events)
+
+    const response = await getSearingEvents(
+      createRequest('http://localhost/api/characters/5/searing?type=sear&limit=10'),
+      createParams('5')
+    )
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual({
+      tokenId: 5,
+      events,
+      count: 1,
+    })
+    expect(activityRepository.findSearingEvents).toHaveBeenCalledWith(5, {
+      limit: 10,
+      eventType: 'sear',
     })
   })
 
