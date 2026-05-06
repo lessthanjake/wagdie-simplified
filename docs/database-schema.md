@@ -1,7 +1,7 @@
 # WAGDIE Simplified Database Schema Documentation
 
 > **Database**: Supabase PostgreSQL
-> **Last Updated**: 2025-11-29
+> **Last Updated**: 2026-05-06
 > **Version**: 2.0.0
 
 ## Table of Contents
@@ -103,6 +103,7 @@ erDiagram
 
     locations {
         text id PK
+        text chain_location_id UK
         text name
         text description
         jsonb metadata
@@ -314,7 +315,8 @@ Game world locations where characters can be staked.
 
 | Column | Type | Nullable | Default | Description |
 |--------|------|----------|---------|-------------|
-| `id` | `TEXT` | NO | - | Primary key (slug format, e.g., "concord_searing") |
+| `id` | `TEXT` | NO | - | Primary key / DB location ID (slug format, e.g., "concord_searing") |
+| `chain_location_id` | `TEXT` | YES | - | On-chain WAGDIE World contract location ID as a positive canonical numeric string; distinct from `id` |
 | `name` | `TEXT` | NO | - | Display name |
 | `description` | `TEXT` | YES | - | Lore description |
 | `metadata` | `JSONB` | YES | - | Optional metadata (coordinates, rarity, properties) |
@@ -324,6 +326,14 @@ Game world locations where characters can be staked.
 
 **Constraints:**
 - `PRIMARY KEY (id)`
+- `locations_chain_location_id_numeric`: `chain_location_id IS NULL OR chain_location_id ~ '^[1-9][0-9]*$'`
+
+**Indexes:**
+- `idx_locations_chain_location_id` unique partial index on `chain_location_id` where not null
+
+**ID Semantics:**
+- `locations.id` is the database foreign key used by `characters.location_id`.
+- `locations.chain_location_id` is the positive numeric contract `uint64 locationId` stored as text to avoid signed integer range issues; `0` means unstaked on-chain and is not valid for a real location.
 
 **JSONB Schema - `metadata`:**
 ```typescript
@@ -331,6 +341,8 @@ interface LocationMetadata {
   coordinates?: { x: number; y: number }
   rarity?: 'common' | 'rare' | 'legendary'
   special_properties?: string[]
+  /** Legacy fallback for the contract location ID; prefer locations.chain_location_id. */
+  chain_location_id?: string | number
 }
 ```
 
@@ -757,6 +769,7 @@ tweets (N) >---- (1) tweet_authors    [via tweet_author_id]
 | `characters` | `idx_characters_burned` | `burned` | Filter burned chars |
 | `characters` | `idx_characters_infection_status` | `infection_status` | Game state queries |
 | `characters` | `idx_characters_staking_status` | `staking_status` | Staking queries |
+| `locations` | `idx_locations_chain_location_id` | `chain_location_id` | Unique on-chain location ID lookup for staking sync |
 | `tweets` | `idx_tweets_created_at` | `created_at DESC` | Timeline queries |
 | `tweets` | `idx_tweets_media_type` | `media_type` | Media filtering |
 | `character_locations` | `idx_character_locations_wallet` | `wallet_address` | Wallet filtering |
@@ -876,6 +889,11 @@ CHECK (status IN ('pending', 'confirmed', 'failed'))
 CHECK (status IN ('staked', 'unstaked', 'pending'))
 ```
 
+### Location Chain ID
+```sql
+CHECK (chain_location_id IS NULL OR chain_location_id ~ '^[1-9][0-9]*$')
+```
+
 ### Location Transaction Action
 ```sql
 CHECK (action IN ('stake', 'move', 'unstake'))
@@ -921,6 +939,7 @@ CHECK (experience >= 0)
 | `20251104194746_add_foreign_keys.sql` | 2025-11-04 | Foreign key constraints |
 | `20251119000000_database_restoration_schema.sql` | 2025-11-19 | Data import tables for migration |
 | `20251125000000_import_wagdie_data.sql` | 2025-11-25 | WAGDIE character data import |
+| `20260506000000_add_locations_chain_location_id.sql` | 2026-05-06 | Adds durable on-chain location ID column for staking sync |
 
 ---
 

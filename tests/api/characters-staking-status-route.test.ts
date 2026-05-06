@@ -71,9 +71,9 @@ describe('Characters staking-status API Route', () => {
     })
   })
 
-  it('returns database statuses without success/data wrapping', async () => {
+  it('returns explicit database status fields while preserving legacy locationId', async () => {
     ;(activityRepository.findStakingStatusRows as jest.Mock).mockResolvedValueOnce([
-      { token_id: 1, location_id: '12' },
+      { token_id: 1, location_id: 'concord_searing' },
     ])
 
     const response = await GET(createRequest('?tokenIds=1,2'))
@@ -82,18 +82,32 @@ describe('Characters staking-status API Route', () => {
     expect(response.headers.get('Cache-Control')).toBe('no-store')
     await expect(response.json()).resolves.toEqual({
       statuses: [
-        { tokenId: 1, isStaked: true, locationId: '12' },
-        { tokenId: 2, isStaked: false, locationId: null },
+        {
+          tokenId: 1,
+          isStaked: true,
+          source: 'db',
+          dbLocationId: 'concord_searing',
+          chainLocationId: null,
+          locationId: 'concord_searing',
+        },
+        {
+          tokenId: 2,
+          isStaked: false,
+          source: 'db',
+          dbLocationId: null,
+          chainLocationId: null,
+          locationId: null,
+        },
       ],
     })
     expect(activityRepository.findStakingStatusRows).toHaveBeenCalledWith([1, 2])
   })
 
-  it('returns chain statuses without success/data wrapping', async () => {
+  it('returns explicit chain status fields with sync success metadata', async () => {
     ;(syncStakingState as jest.Mock).mockResolvedValueOnce({
       results: [
-        { tokenId: 1, chainLocationId: '7' },
-        { tokenId: 2, chainLocationId: '0' },
+        { tokenId: 1, success: true, locationId: 'concord_searing', chainLocationId: '7' },
+        { tokenId: 2, success: true, locationId: null, chainLocationId: '0' },
       ],
     })
 
@@ -103,10 +117,58 @@ describe('Characters staking-status API Route', () => {
     expect(response.headers.get('Cache-Control')).toBe('no-store')
     await expect(response.json()).resolves.toEqual({
       statuses: [
-        { tokenId: 1, isStaked: true, locationId: '7' },
-        { tokenId: 2, isStaked: false, locationId: null },
+        {
+          tokenId: 1,
+          isStaked: true,
+          source: 'chain',
+          dbLocationId: 'concord_searing',
+          chainLocationId: '7',
+          locationId: '7',
+          syncSuccess: true,
+        },
+        {
+          tokenId: 2,
+          isStaked: false,
+          source: 'chain',
+          dbLocationId: null,
+          chainLocationId: null,
+          locationId: null,
+          syncSuccess: true,
+        },
       ],
     })
     expect(syncStakingState).toHaveBeenCalledWith({ tokenIds: [1, 2] })
+  })
+
+  it('reports chain truth even when chain-source DB sync fails', async () => {
+    ;(syncStakingState as jest.Mock).mockResolvedValueOnce({
+      results: [
+        {
+          tokenId: 1,
+          success: false,
+          locationId: null,
+          chainLocationId: '7',
+          error: 'No location mapping for chain_location_id',
+        },
+      ],
+    })
+
+    const response = await GET(createRequest('?tokenIds=1&source=chain'))
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual({
+      statuses: [
+        {
+          tokenId: 1,
+          isStaked: true,
+          source: 'chain',
+          dbLocationId: null,
+          chainLocationId: '7',
+          locationId: '7',
+          syncSuccess: false,
+          syncError: 'No location mapping for chain_location_id',
+        },
+      ],
+    })
   })
 })

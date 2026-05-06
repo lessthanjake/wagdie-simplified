@@ -17,6 +17,7 @@ import { wagdieWorldABI } from '../../contracts/abis/wagdie-world'
 import { getContractAddresses } from '../../contracts/addresses'
 import { CHARACTERS_TABLE } from '../../db/tables'
 import { getSupabaseAdmin } from '../../supabase'
+import { parseChainLocationId } from '../../utils/chainIds'
 
 export type StakingStateSyncResult = {
   tokenId: number
@@ -47,6 +48,8 @@ type WagdieInfo = {
 
 type LocationRow = {
   id: string
+  chain_location_id: string | null
+  metadata: unknown
 }
 
 type LocationQueryResult = {
@@ -183,35 +186,62 @@ async function fetchWagdieInfosFromChain(params: {
 async function fetchLocationIdMap(params: {
   adminClient: NonNullable<ReturnType<typeof getSupabaseAdmin>>
   chainLocationIds: string[]
-}): Promise<{ map: Map<string, string>; error?: string }> {
+}): Promise<{ map: Map<string, string>; duplicateChainLocationIds: Set<string>; error?: string }> {
   const { adminClient, chainLocationIds } = params
 
   const unique = Array.from(new Set(chainLocationIds)).filter((id) => typeof id === 'string' && id.length > 0)
   if (unique.length === 0) {
-    return { map: new Map() }
+    return { map: new Map(), duplicateChainLocationIds: new Set() }
   }
 
   const { data, error } = (await adminClient
     .from('locations')
-    .select('id')
-    .in('id', unique)) as LocationQueryResult
+    .select('id, chain_location_id, metadata')) as LocationQueryResult
 
   if (error) {
-    return { map: new Map(), error: error.message }
+    return { map: new Map(), duplicateChainLocationIds: new Set(), error: error.message }
   }
 
+  const requested = new Set(unique)
   const map = new Map<string, string>()
+  const duplicateChainLocationIds = new Set<string>()
+
   for (const row of data ?? []) {
     if (!row || typeof row.id !== 'string') continue
-    map.set(row.id, row.id)
+
+    const metadataChainLocationId =
+      row.metadata && typeof row.metadata === 'object' && 'chain_location_id' in row.metadata
+        ? (row.metadata as Record<string, unknown>).chain_location_id
+        : null
+    const parsed = parseChainLocationId(row.chain_location_id ?? metadataChainLocationId)
+    if (parsed === null || parsed === 0n) continue
+
+    const chainLocationId = parsed.toString()
+    if (!requested.has(chainLocationId)) continue
+
+    const existingDbLocationId = map.get(chainLocationId)
+    if (existingDbLocationId && existingDbLocationId !== row.id) {
+      duplicateChainLocationIds.add(chainLocationId)
+      map.delete(chainLocationId)
+      continue
+    }
+
+    if (!duplicateChainLocationIds.has(chainLocationId)) {
+      map.set(chainLocationId, row.id)
+    }
   }
 
-  return { map }
+  return { map, duplicateChainLocationIds }
 }
 
 async function bulkUpdateCharacterStakingState(params: {
   adminClient: NonNullable<ReturnType<typeof getSupabaseAdmin>>
-  updates: Array<{ tokenId: number; locationId: string | null; stakerAddress: string | null }>
+  updates: Array<{
+    tokenId: number
+    locationId: string | null
+    stakerAddress: string | null
+    stakingStatus: 'staked' | 'unstaked'
+  }>
 }): Promise<{
   updated: number
   failed: number
@@ -241,19 +271,31 @@ async function bulkUpdateCharacterStakingState(params: {
         // Cast required: Supabase generated types may not allow partial updates on this table
         const query = adminClient.from(CHARACTERS_TABLE) as unknown as {
           update: (values: Record<string, unknown>) => {
-            eq: (column: string, value: number) => Promise<{ error: { message: string } | null }>
+            eq: (column: string, value: number) => {
+              select: (columns: string) => Promise<{
+                data: Array<{ token_id: number }> | null
+                error: { message: string } | null
+              }>
+            }
           }
         }
-        const { error } = await query
+        const { data, error } = await query
           .update({
             location_id: u.locationId,
             staker_address: u.stakerAddress,
+            staking_status: u.stakingStatus,
             updated_at: nowIso,
           })
           .eq('token_id', u.tokenId)
+          .select('token_id')
 
         if (error) {
           throw new Error(error.message)
+        }
+
+        const updatedRow = data?.find((row) => row.token_id === u.tokenId)
+        if (!updatedRow) {
+          throw new Error(`Character row not found for token_id ${u.tokenId}`)
         }
 
         return u.tokenId
@@ -428,6 +470,16 @@ export async function syncStakingState(params: {
         continue
       }
 
+      if (locationLookup.duplicateChainLocationIds.has(existing.chainLocationId)) {
+        preliminaryResults.set(tokenId, {
+          ...existing,
+          success: false,
+          locationId: null,
+          error: 'Duplicate location mapping for chain_location_id',
+        })
+        continue
+      }
+
       const mapped = locationLookup.map.get(existing.chainLocationId) ?? null
       if (!mapped) {
         preliminaryResults.set(tokenId, {
@@ -444,7 +496,12 @@ export async function syncStakingState(params: {
   }
 
   // Build DB updates (only those that should be written).
-  const updates: Array<{ tokenId: number; locationId: string | null; stakerAddress: string | null }> = []
+  const updates: Array<{
+    tokenId: number
+    locationId: string | null
+    stakerAddress: string | null
+    stakingStatus: 'staked' | 'unstaked'
+  }> = []
 
   for (const tokenId of tokenIds) {
     const r = preliminaryResults.get(tokenId)
@@ -459,6 +516,7 @@ export async function syncStakingState(params: {
         tokenId,
         locationId: null,
         stakerAddress: null,
+        stakingStatus: 'unstaked',
       })
       continue
     }
@@ -477,6 +535,7 @@ export async function syncStakingState(params: {
       tokenId,
       locationId: r.locationId,
       stakerAddress: r.stakerAddress,
+      stakingStatus: 'staked',
     })
   }
 

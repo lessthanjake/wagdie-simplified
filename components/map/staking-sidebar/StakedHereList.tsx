@@ -11,6 +11,8 @@ interface StakedHereListProps {
   activeTokenId: number | null;
   isUnstaking: boolean;
   isLoadingStatuses: boolean;
+  canUnstakeNow: boolean;
+  pendingSyncTokenIds?: Set<number>;
   handleUnstake: (tokenId: number) => Promise<void>;
 }
 
@@ -20,6 +22,8 @@ export function StakedHereList({
   activeTokenId,
   isUnstaking,
   isLoadingStatuses,
+  canUnstakeNow,
+  pendingSyncTokenIds,
   handleUnstake,
 }: StakedHereListProps) {
   if (stakedHere.length === 0) {
@@ -45,6 +49,7 @@ export function StakedHereList({
         const effectiveOwner = row.staker_address ?? row.owner_address;
         const isOwned = effectiveWallet && effectiveOwner?.toLowerCase() === effectiveWallet.toLowerCase();
         const isRowBusy = activeTokenId === row.token_id;
+        const isPendingSync = pendingSyncTokenIds?.has(row.token_id) ?? false;
 
         return (
           <div
@@ -90,7 +95,7 @@ export function StakedHereList({
                   variant="secondary"
                   size="sm"
                   onClick={() => handleUnstake(row.token_id)}
-                  disabled={isRowBusy || isUnstaking || isLoadingStatuses}
+                  disabled={!canUnstakeNow || isPendingSync || isRowBusy || isUnstaking || isLoadingStatuses}
                   isLoading={isRowBusy && isUnstaking}
                 >
                   Unstake

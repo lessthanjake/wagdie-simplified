@@ -10,6 +10,10 @@ export type JsonInit = {
   headers?: HeadersInit
 }
 
+export type JsonBodyParseResult<T> =
+  | { ok: true; data: T }
+  | { ok: false }
+
 export interface ApiResponse<T = unknown> {
   success: boolean
   data?: T
@@ -26,14 +30,33 @@ export function jsonRaw<T>(body: T, init?: JsonInit): NextResponse<T> {
   return NextResponse.json(body, init)
 }
 
-export function jsonNoStore<T>(body: T, init: JsonInit = {}): NextResponse<T> {
-  const headers = new Headers(init.headers)
-  headers.set('Cache-Control', 'no-store')
+export function withNoStoreHeaders(headers?: HeadersInit): Headers {
+  const noStoreHeaders = new Headers(headers)
+  noStoreHeaders.set('Cache-Control', 'no-store')
+  return noStoreHeaders
+}
 
+export function jsonNoStore<T>(body: T, init: JsonInit = {}): NextResponse<T> {
   return jsonRaw(body, {
     ...init,
-    headers,
+    headers: withNoStoreHeaders(init.headers),
   })
+}
+
+export function jsonRawError(
+  error: string,
+  status: number,
+  init?: Omit<JsonInit, 'status'>
+): NextResponse<{ error: string }> {
+  return jsonRaw({ error }, { ...init, status })
+}
+
+export function jsonNoStoreError(
+  error: string,
+  status: number,
+  init?: Omit<JsonInit, 'status'>
+): NextResponse<{ error: string }> {
+  return jsonNoStore({ error }, { ...init, status })
 }
 
 export function jsonOk<T>(data: T): NextResponse<ApiResponse<T>> {
@@ -96,6 +119,10 @@ export function jsonServerError(error: string, devDetails?: unknown): NextRespon
 /**
  * Extract error details for development only
  */
+export function getErrorMessage(error: unknown, fallbackMessage: string): string {
+  return error instanceof Error ? error.message : fallbackMessage
+}
+
 function getDevErrorDetails(error: unknown): string | undefined {
   if (process.env.NODE_ENV === 'production') return undefined
   if (!error) return undefined
@@ -116,5 +143,13 @@ export async function parseJsonBody<T>(request: Request): Promise<T | null> {
     return await request.json() as T
   } catch {
     return null
+  }
+}
+
+export async function parseJsonBodyResult<T>(request: Request): Promise<JsonBodyParseResult<T>> {
+  try {
+    return { ok: true, data: await request.json() as T }
+  } catch {
+    return { ok: false }
   }
 }

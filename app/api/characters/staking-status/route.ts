@@ -1,7 +1,7 @@
 /**
  * Staking Status API Route
  * GET handler for batch staking status lookup by token IDs
- * Returns staking status from database (not blockchain)
+ * Returns staking status from database or chain-backed sync
  */
 
 import { syncStakingState } from '@/lib/services/sync/staking-state-sync'
@@ -20,7 +20,16 @@ const MAX_TOKEN_IDS = 500
 interface StakingStatusResponse {
   tokenId: number
   isStaked: boolean
+  source: StakingSource
+  dbLocationId: string | null
+  chainLocationId: string | null
+  /**
+   * Deprecated compatibility field.
+   * db source: DB location ID; chain source: chain location ID.
+   */
   locationId: string | null
+  syncSuccess?: boolean
+  syncError?: string
 }
 
 interface ApiResponse {
@@ -74,24 +83,28 @@ export async function GET(request: NextRequest): Promise<NextResponse<ApiRespons
       // Read-through cache pattern: chain is truth, DB is refreshed as a side effect.
       const { results } = await syncStakingState({ tokenIds })
 
-      const byTokenId = new Map<number, { chainLocationId: string }>()
+      const byTokenId = new Map<number, typeof results[number]>()
       for (const r of results) {
-        byTokenId.set(r.tokenId, { chainLocationId: r.chainLocationId })
+        byTokenId.set(r.tokenId, r)
       }
 
       const statuses: StakingStatusResponse[] = tokenIds.map((tokenId) => {
         const row = byTokenId.get(tokenId)
-        const chainLocationId = row?.chainLocationId ?? ''
-
-        const locationId =
-          chainLocationId && chainLocationId !== '0'
-            ? chainLocationId
+        const rawChainLocationId = row?.chainLocationId ?? ''
+        const chainLocationId =
+          rawChainLocationId && rawChainLocationId !== '0'
+            ? rawChainLocationId
             : null
 
         return {
           tokenId,
-          isStaked: locationId !== null,
-          locationId,
+          isStaked: chainLocationId !== null,
+          source: 'chain',
+          dbLocationId: row?.locationId ?? null,
+          chainLocationId,
+          locationId: chainLocationId,
+          syncSuccess: row?.success ?? false,
+          ...(row?.error ? { syncError: row.error } : {}),
         }
       })
 
@@ -123,6 +136,9 @@ export async function GET(request: NextRequest): Promise<NextResponse<ApiRespons
       return {
         tokenId,
         isStaked: locationId !== null,
+        source: 'db',
+        dbLocationId: locationId,
+        chainLocationId: null,
         locationId,
       }
     })
