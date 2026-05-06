@@ -10,6 +10,7 @@ import type { Character } from '@/types/character';
 import { useOwnedCharacters } from '@/hooks/useOwnedCharacters';
 import { useStakingStatuses } from '@/hooks/useStakingStatuses';
 import { useStaking } from '@/hooks/useStaking';
+import { STAKING_CHAIN_ERROR, STAKING_CHAIN_ID } from '@/lib/contracts/staking-chain';
 
 export type ApprovalState = 'idle' | 'checking' | 'approved' | 'not_approved' | 'error';
 
@@ -63,6 +64,8 @@ export interface UseMapStakingPanelResult {
   isLoadingStatuses: boolean;
   dataLoadingError: string | null;
   transactionError: string | null;
+  syncWarning: string | null;
+  pendingSyncTokenIds: Set<number>;
 
   activeTokenId: number | null;
   handleStake: (tokenId: number) => Promise<void>;
@@ -72,10 +75,10 @@ export interface UseMapStakingPanelResult {
   isUnstaking: boolean;
   isApproving: boolean;
   canStakeNow: boolean;
+  canUnstakeNow: boolean;
   showApprovalBanner: boolean;
 }
 
-const STAKING_CHAIN_ID = 1;
 const PER_PAGE = 10;
 const APPROVAL_CHECK_TIMEOUT_MS = 10_000;
 
@@ -125,13 +128,15 @@ export function useMapStakingPanel(input: UseMapStakingPanelInput): UseMapStakin
   const effectiveWallet = walletAddress ?? address;
   const chainId = useChainId();
   const isCorrectChain = chainId === STAKING_CHAIN_ID;
-  const chainError = !isCorrectChain ? 'Switch to Ethereum Mainnet to stake' : null;
+  const chainError = !isCorrectChain ? STAKING_CHAIN_ERROR : null;
 
   const [activeTab, setActiveTab] = useState<LocationTab>('your-characters');
   const [approvalState, setApprovalState] = useState<ApprovalState>('idle');
   const [approvalError, setApprovalError] = useState<string | null>(null);
   const [activeTokenId, setActiveTokenId] = useState<number | null>(null);
   const [page, setPage] = useState(0);
+  const [syncWarning, setSyncWarning] = useState<string | null>(null);
+  const [pendingSyncTokenIds, setPendingSyncTokenIds] = useState<Set<number>>(() => new Set());
 
   const {
     isStaking,
@@ -142,14 +147,44 @@ export function useMapStakingPanel(input: UseMapStakingPanelInput): UseMapStakin
     approveForStaking,
     stakeWagdie,
     unstakeWagdie,
+    syncStakingState,
   } = useStaking();
 
   const approvalCheckInFlightRef = useRef(false);
   const approvalCheckNonceRef = useRef(0);
   const checkApprovalRef = useRef(checkApproval);
   const isOpenRef = useRef(isOpen);
+  const syncRetryTimerRef = useRef<number | null>(null);
+  const syncOperationNonceRef = useRef(0);
 
   const stakingEnabled = isOpen;
+
+  const clearSyncRetry = useCallback(() => {
+    if (syncRetryTimerRef.current === null) return;
+    window.clearTimeout(syncRetryTimerRef.current);
+    syncRetryTimerRef.current = null;
+  }, []);
+
+  const addPendingSyncToken = useCallback((tokenId: number) => {
+    setPendingSyncTokenIds((current) => {
+      const next = new Set(current);
+      next.add(tokenId);
+      return next;
+    });
+  }, []);
+
+  const removePendingSyncToken = useCallback((tokenId: number) => {
+    setPendingSyncTokenIds((current) => {
+      if (!current.has(tokenId)) return current;
+      const next = new Set(current);
+      next.delete(tokenId);
+      return next;
+    });
+  }, []);
+
+  const clearPendingSyncTokens = useCallback(() => {
+    setPendingSyncTokenIds((current) => current.size === 0 ? current : new Set());
+  }, []);
 
   useEffect(() => {
     isOpenRef.current = isOpen;
@@ -158,6 +193,23 @@ export function useMapStakingPanel(input: UseMapStakingPanelInput): UseMapStakin
   useEffect(() => {
     checkApprovalRef.current = checkApproval;
   }, [checkApproval]);
+
+  useEffect(() => {
+    if (isOpen) return;
+
+    clearSyncRetry();
+    syncOperationNonceRef.current += 1;
+    setSyncWarning(null);
+    clearPendingSyncTokens();
+  }, [isOpen, clearSyncRetry, clearPendingSyncTokens]);
+
+  useEffect(() => {
+    return () => {
+      clearSyncRetry();
+      syncOperationNonceRef.current += 1;
+      clearPendingSyncTokens();
+    };
+  }, [clearSyncRetry, clearPendingSyncTokens]);
 
   const charactersEnabled = stakingEnabled && isConnected && !!effectiveWallet;
   const {
@@ -207,7 +259,9 @@ export function useMapStakingPanel(input: UseMapStakingPanelInput): UseMapStakin
   }, [effectiveWallet]);
 
   const runApprovalCheck = useCallback(async () => {
-    if (!stakingEnabled || !isConnected || !address) {
+    if (!stakingEnabled || !isConnected || !address || !isCorrectChain) {
+      approvalCheckNonceRef.current += 1;
+      approvalCheckInFlightRef.current = false;
       setApprovalState('idle');
       setApprovalError(null);
       return;
@@ -247,7 +301,7 @@ export function useMapStakingPanel(input: UseMapStakingPanelInput): UseMapStakin
         approvalCheckInFlightRef.current = false;
       }
     }
-  }, [isConnected, stakingEnabled, address]);
+  }, [isConnected, stakingEnabled, address, isCorrectChain]);
 
   useEffect(() => {
     void runApprovalCheck();
@@ -255,39 +309,119 @@ export function useMapStakingPanel(input: UseMapStakingPanelInput): UseMapStakin
 
   const handleApprove = useCallback(async () => {
     setApprovalError(null);
+
+    if (!isCorrectChain) {
+      setApprovalError(STAKING_CHAIN_ERROR);
+      return;
+    }
+
     await approveForStaking();
     await runApprovalCheck();
-  }, [approveForStaking, runApprovalCheck]);
+  }, [approveForStaking, runApprovalCheck, isCorrectChain]);
+
+  const handlePostTransactionRefresh = useCallback(
+    async (params: {
+      tokenId: number;
+      action: 'stake' | 'unstake';
+      outcome: Awaited<ReturnType<typeof stakeWagdie>>;
+    }) => {
+      const { tokenId, action, outcome } = params;
+
+      if (!outcome.transaction.success) return;
+
+      const syncOutcome = outcome.sync;
+
+      if (syncOutcome?.ok === false) {
+        const warningMessage =
+          syncOutcome.message ??
+          'Transaction confirmed, but map data is still syncing.';
+        const operationNonce = ++syncOperationNonceRef.current;
+
+        clearSyncRetry();
+        addPendingSyncToken(tokenId);
+        setSyncWarning(warningMessage);
+
+        await Promise.allSettled([
+          refetchStatuses({ source: 'chain', tokenIds: [tokenId] }),
+          refetchCharacters(),
+          Promise.resolve(onStakingChanged?.()),
+        ]);
+
+        if (!syncOutcome.retryable) return;
+
+        syncRetryTimerRef.current = window.setTimeout(() => {
+          void (async () => {
+            const retryOutcome = await syncStakingState(tokenId, action);
+
+            if (syncOperationNonceRef.current !== operationNonce) return;
+            if (!isOpenRef.current) return;
+
+            if (retryOutcome.ok) {
+              removePendingSyncToken(tokenId);
+              setSyncWarning(null);
+              await Promise.allSettled([
+                refetchStatuses(),
+                refetchCharacters(),
+                Promise.resolve(onStakingChanged?.()),
+              ]);
+              return;
+            }
+
+            setSyncWarning(retryOutcome.message ?? warningMessage);
+          })();
+        }, 5_000);
+
+        return;
+      }
+
+      clearSyncRetry();
+      syncOperationNonceRef.current += 1;
+      removePendingSyncToken(tokenId);
+      setSyncWarning(null);
+      await Promise.all([refetchStatuses(), refetchCharacters()]);
+      await onStakingChanged?.();
+    },
+    [
+      clearSyncRetry,
+      refetchStatuses,
+      refetchCharacters,
+      onStakingChanged,
+      stakeWagdie,
+      syncStakingState,
+      addPendingSyncToken,
+      removePendingSyncToken,
+    ]
+  );
 
   const handleStake = useCallback(
     async (tokenId: number) => {
       if (!selectedLocation) return;
       setActiveTokenId(tokenId);
+      removePendingSyncToken(tokenId);
 
       try {
-        await stakeWagdie(tokenId, selectedLocation.locationId);
-        await Promise.all([refetchStatuses(), refetchCharacters()]);
-        await onStakingChanged?.();
+        const outcome = await stakeWagdie(tokenId, selectedLocation.locationId);
+        await handlePostTransactionRefresh({ tokenId, action: 'stake', outcome });
       } finally {
         setActiveTokenId(null);
       }
     },
-    [selectedLocation, stakeWagdie, refetchStatuses, refetchCharacters, onStakingChanged]
+    [selectedLocation, stakeWagdie, handlePostTransactionRefresh, removePendingSyncToken]
   );
 
   const handleUnstake = useCallback(
     async (tokenId: number) => {
       setActiveTokenId(tokenId);
+      removePendingSyncToken(tokenId);
 
       try {
-        await unstakeWagdie(tokenId);
-        await Promise.all([refetchStatuses(), refetchCharacters()]);
-        await onStakingChanged?.();
+        const outcome = await unstakeWagdie(tokenId);
+        await handlePostTransactionRefresh({ tokenId, action: 'unstake', outcome });
       } finally {
         setActiveTokenId(null);
       }
     },
-    [unstakeWagdie, refetchStatuses, refetchCharacters, onStakingChanged]
+    [unstakeWagdie, handlePostTransactionRefresh, removePendingSyncToken]
   );
 
   const canStakeNow =
@@ -298,7 +432,13 @@ export function useMapStakingPanel(input: UseMapStakingPanelInput): UseMapStakin
     !isStaking &&
     !isApproving;
 
-  const showApprovalBanner = isConnected && approvalState !== 'approved';
+  const canUnstakeNow =
+    isConnected &&
+    isCorrectChain &&
+    !isUnstaking &&
+    !isApproving;
+
+  const showApprovalBanner = isConnected && isCorrectChain && approvalState !== 'approved';
 
   const dataLoadingError =
     (charactersError ? `Failed to load characters: ${charactersError.message}` : null) ||
@@ -330,6 +470,8 @@ export function useMapStakingPanel(input: UseMapStakingPanelInput): UseMapStakin
     isLoadingStatuses,
     dataLoadingError,
     transactionError,
+    syncWarning,
+    pendingSyncTokenIds,
     activeTokenId,
     handleStake,
     handleUnstake,
@@ -337,6 +479,7 @@ export function useMapStakingPanel(input: UseMapStakingPanelInput): UseMapStakin
     isUnstaking,
     isApproving,
     canStakeNow,
+    canUnstakeNow,
     showApprovalBanner,
   };
 }

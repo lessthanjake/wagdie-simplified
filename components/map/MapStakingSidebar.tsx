@@ -87,6 +87,7 @@ export function MapStakingSidebar({
       onClose={onClose}
       footer={
         panel.isConnected &&
+        panel.isCorrectChain &&
         !panel.canStakeNow &&
         selectedLocation &&
         panel.approvalState === 'approved' ? (
@@ -124,6 +125,12 @@ export function MapStakingSidebar({
           />
         )}
 
+        {panel.syncWarning && (
+          <Alert variant="default" className="bg-neutral-900/30 border-neutral-800">
+            {panel.syncWarning}
+          </Alert>
+        )}
+
         {isLocationMarker && panel.activeTab === 'staked-here' && (
           <div className="space-y-2">
             <StakedHereList
@@ -132,6 +139,8 @@ export function MapStakingSidebar({
               activeTokenId={panel.activeTokenId}
               isUnstaking={panel.isUnstaking}
               isLoadingStatuses={panel.isLoadingStatuses}
+              canUnstakeNow={panel.canUnstakeNow}
+              pendingSyncTokenIds={panel.pendingSyncTokenIds}
               handleUnstake={panel.handleUnstake}
             />
           </div>
@@ -143,7 +152,7 @@ export function MapStakingSidebar({
               <WalletGate />
             ) : (
               <>
-                {panel.approvalState === 'approved' && <ApprovalReadyBanner />}
+                {panel.isCorrectChain && panel.approvalState === 'approved' && <ApprovalReadyBanner />}
 
                 {panel.showApprovalBanner && (
                   <ApprovalBanner
@@ -191,6 +200,8 @@ export function MapStakingSidebar({
                     isUnstaking={panel.isUnstaking}
                     isLoadingStatuses={panel.isLoadingStatuses}
                     canStakeNow={panel.canStakeNow}
+                    canUnstakeNow={panel.canUnstakeNow}
+                    pendingSyncTokenIds={panel.pendingSyncTokenIds}
                     handleStake={panel.handleStake}
                     handleUnstake={panel.handleUnstake}
                   />

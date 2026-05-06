@@ -12,6 +12,8 @@ interface CharacterStakeListProps {
   isUnstaking: boolean;
   isLoadingStatuses: boolean;
   canStakeNow: boolean;
+  canUnstakeNow: boolean;
+  pendingSyncTokenIds?: Set<number>;
   handleStake: (tokenId: number) => Promise<void>;
   handleUnstake: (tokenId: number) => Promise<void>;
 }
@@ -23,6 +25,8 @@ export function CharacterStakeList({
   isUnstaking,
   isLoadingStatuses,
   canStakeNow,
+  canUnstakeNow,
+  pendingSyncTokenIds,
   handleStake,
   handleUnstake,
 }: CharacterStakeListProps) {
@@ -47,6 +51,7 @@ export function CharacterStakeList({
         const name = getCharacterName(character);
         const isRowBusy = activeTokenId === character.token_id;
         const isStaked = character.isStaked;
+        const isPendingSync = pendingSyncTokenIds?.has(character.token_id) ?? false;
 
         return (
           <div
@@ -95,7 +100,7 @@ export function CharacterStakeList({
                   variant="secondary"
                   size="sm"
                   onClick={() => handleUnstake(character.token_id)}
-                  disabled={isRowBusy || isUnstaking || isLoadingStatuses}
+                  disabled={!canUnstakeNow || isPendingSync || isRowBusy || isUnstaking || isLoadingStatuses}
                   isLoading={isRowBusy && isUnstaking}
                 >
                   Unstake
@@ -104,7 +109,7 @@ export function CharacterStakeList({
                 <Button
                   size="sm"
                   onClick={() => handleStake(character.token_id)}
-                  disabled={!canStakeNow || isRowBusy || isLoadingStatuses}
+                  disabled={!canStakeNow || isPendingSync || isRowBusy || isLoadingStatuses}
                   isLoading={isRowBusy && isStaking}
                 >
                   Stake

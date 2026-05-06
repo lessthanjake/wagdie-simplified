@@ -15,8 +15,23 @@ export type PositiveIntParamOptions = {
   max?: number
 }
 
+export type StrictPositiveIntParamOptions = PositiveIntParamOptions
+
 export type CsvPositiveIntListOptions = {
   maxItems?: number
+}
+
+export type PositiveIntArrayParamOptions = {
+  fieldName?: string
+  min?: number
+  max?: number
+  maxItems?: number
+  allowEmpty?: boolean
+}
+
+export type PositiveIntArrayParseResult = {
+  values: number[]
+  error?: string
 }
 
 export function parseTokenIdParam(value: string, range: TokenIdRange = {}): number | null {
@@ -36,6 +51,24 @@ export function parsePositiveIntParam(
 
   const parsed = Number.parseInt(raw, 10)
   if (Number.isNaN(parsed)) return null
+
+  const min = options.min ?? 1
+  if (parsed < min) return null
+  if (options.max !== undefined && parsed > options.max) return null
+
+  return parsed
+}
+
+export function parseStrictPositiveIntParam(
+  value: string | null,
+  options: StrictPositiveIntParamOptions = {}
+): number | null {
+  const raw = value?.trim()
+  if (!raw) return options.defaultValue ?? null
+  if (!/^\d+$/.test(raw)) return null
+
+  const parsed = Number(raw)
+  if (!Number.isSafeInteger(parsed)) return null
 
   const min = options.min ?? 1
   if (parsed < min) return null
@@ -109,4 +142,75 @@ export function parseCsvPositiveIntList(
   }
 
   return { values }
+}
+
+export function parsePositiveIntArrayParam(
+  value: unknown,
+  options: PositiveIntArrayParamOptions = {}
+): PositiveIntArrayParseResult {
+  const fieldName = options.fieldName ?? 'value'
+  const min = options.min ?? 1
+  const values: number[] = []
+
+  if (!Array.isArray(value)) {
+    return {
+      values,
+      error: `${fieldName} must be an array of positive integers`,
+    }
+  }
+
+  for (const item of value) {
+    if (typeof item !== 'number' || !Number.isInteger(item) || item < min) {
+      return {
+        values: [],
+        error: `${fieldName} must be an array of positive integers`,
+      }
+    }
+
+    if (options.max !== undefined && item > options.max) {
+      return {
+        values: [],
+        error: `${fieldName} must be an array of positive integers`,
+      }
+    }
+
+    values.push(item)
+  }
+
+  if (!options.allowEmpty && values.length === 0) {
+    return {
+      values,
+      error: `${fieldName} must not be empty`,
+    }
+  }
+
+  if (options.maxItems !== undefined && values.length > options.maxItems) {
+    return {
+      values,
+      error: `Maximum ${options.maxItems} ${fieldName} per request`,
+    }
+  }
+
+  return { values }
+}
+
+export function uniqueNumbers(values: number[]): number[] {
+  const seen = new Set<number>()
+  const out: number[] = []
+  for (const value of values) {
+    if (seen.has(value)) continue
+    seen.add(value)
+    out.push(value)
+  }
+  return out
+}
+
+export function parseStringBodyParam(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : null
+}
+
+export function parseIntegerBodyParam(value: unknown): number | undefined {
+  if (value === undefined || value === null) return undefined
+  if (typeof value !== 'number' || !Number.isInteger(value)) return undefined
+  return value
 }

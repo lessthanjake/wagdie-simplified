@@ -45,10 +45,17 @@ export interface CharacterOwnership {
 export interface StakingStatus {
   tokenId: bigint
   isStaked: boolean
+  /** Existing chain ID field; only set when a numeric chain ID is known. */
   locationId?: bigint
   locationName?: string
   locationOwner?: Address
   nftsLocked?: boolean
+  /** DB location ID/slug from database-backed status reads. */
+  dbLocationId?: string
+  /** Explicit on-chain location ID from chain-backed status reads. */
+  chainLocationId?: bigint
+  syncSuccess?: boolean
+  syncError?: string
 }
 
 // Searing status

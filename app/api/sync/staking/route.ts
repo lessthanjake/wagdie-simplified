@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { syncStakingState } from '@/lib/services/sync/staking-state-sync'
-import { jsonNoStore } from '@/lib/api/responses'
+import { parsePositiveIntArrayParam, uniqueNumbers } from '@/lib/api/params'
+import { getErrorMessage, jsonNoStore, parseJsonBodyResult } from '@/lib/api/responses'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,66 +15,30 @@ type SyncResult = {
   error?: string
 }
 
-function parseTokenIds(input: unknown): number[] | null {
-  if (!Array.isArray(input)) return null
-
-  const parsed: number[] = []
-  for (const value of input) {
-    if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
-      return null
-    }
-    parsed.push(value)
-  }
-
-  return parsed
-}
-
-function uniqueNumbers(values: number[]): number[] {
-  const seen = new Set<number>()
-  const out: number[] = []
-  for (const value of values) {
-    if (seen.has(value)) continue
-    seen.add(value)
-    out.push(value)
-  }
-  return out
-}
-
 export async function POST(request: NextRequest) {
-  let body: unknown
+  const bodyResult = await parseJsonBodyResult<unknown>(request)
 
-  try {
-    body = await request.json()
-  } catch {
+  if (!bodyResult.ok) {
     return jsonNoStore(
       { results: [], error: 'Invalid JSON body' },
       { status: 400 }
     )
   }
 
-  const tokenIds = parseTokenIds((body as { tokenIds?: unknown })?.tokenIds)
-  if (!tokenIds) {
+  const body = bodyResult.data
+  const tokenIdParseResult = parsePositiveIntArrayParam((body as { tokenIds?: unknown })?.tokenIds, {
+    fieldName: 'tokenIds',
+    maxItems: MAX_TOKEN_IDS,
+  })
+
+  if (tokenIdParseResult.error) {
     return jsonNoStore(
-      { results: [], error: 'tokenIds must be an array of positive integers' },
+      { results: [], error: tokenIdParseResult.error },
       { status: 400 }
     )
   }
 
-  if (tokenIds.length === 0) {
-    return jsonNoStore(
-      { results: [], error: 'tokenIds must not be empty' },
-      { status: 400 }
-    )
-  }
-
-  if (tokenIds.length > MAX_TOKEN_IDS) {
-    return jsonNoStore(
-      { results: [], error: `Maximum ${MAX_TOKEN_IDS} tokenIds per request` },
-      { status: 400 }
-    )
-  }
-
-  const uniqueTokenIds = uniqueNumbers(tokenIds)
+  const uniqueTokenIds = uniqueNumbers(tokenIdParseResult.values)
 
   try {
     const { results: sharedResults } = await syncStakingState({
@@ -90,8 +55,7 @@ export async function POST(request: NextRequest) {
 
     return jsonNoStore({ results })
   } catch (err) {
-    const message =
-      err instanceof Error ? err.message : 'Failed to sync staking status'
+    const message = getErrorMessage(err, 'Failed to sync staking status')
     return jsonNoStore(
       { results: [], error: message },
       { status: 500 }

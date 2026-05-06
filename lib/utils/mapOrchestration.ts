@@ -74,9 +74,9 @@ export function getStakingLocationSelection(marker: MarkerPayload): StakingLocat
   if (marker.type !== 'location') return null;
 
   const location = toLocation(marker.data as MapLocationData);
-  const chainLocationId = parseChainLocationId(location.id);
+  const chainLocationId = parseChainLocationId(location.chain_location_id);
 
-  if (chainLocationId === null) {
+  if (chainLocationId === null || chainLocationId === 0n) {
     console.warn(`Location "${location.id}" has no valid chain_location_id`);
 
     return {

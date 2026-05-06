@@ -8,6 +8,7 @@ import { useAccount, usePublicClient, useWalletClient } from 'wagmi'
 import { ContractError, ContractErrorType, TransactionHash, TransactionStatus, StakingStatus } from '@/types/blockchain'
 import { StakeWagdiesParams, UnstakeWagdiesParams } from '@/types/contracts'
 import { StakingService } from '@/lib/services/blockchain/staking'
+import { STAKING_CHAIN_ERROR, STAKING_CHAIN_ID } from '@/lib/contracts/staking-chain'
 import { logError } from '@/lib/utils/errors'
 import { useTransactionStore } from '@/lib/store/transactions'
 import {
@@ -19,7 +20,11 @@ import {
   showErrorToast,
 } from '@/lib/utils/toast'
 import {
+  createContractError,
   confirmContractTransaction,
+  missingTransactionHashError,
+  walletNotConnectedError,
+  type TransactionExecutionOutcome,
   useBlockchainTransaction,
 } from './useBlockchainTransaction'
 
@@ -34,6 +39,18 @@ type SyncStakingApiResult = {
 type SyncStakingApiResponse = {
   results: SyncStakingApiResult[]
   error?: string
+}
+
+export type PostTransactionSyncOutcome = {
+  ok: boolean
+  message?: string
+  results?: SyncStakingApiResult[]
+  retryable: boolean
+}
+
+export type StakingActionOutcome = {
+  transaction: TransactionExecutionOutcome
+  sync?: PostTransactionSyncOutcome
 }
 
 function buildSyncFailureMessage(params: {
@@ -74,7 +91,7 @@ function buildSyncFailureMessage(params: {
 async function syncStakingStateToDb(params: {
   tokenId: number
   action: 'stake' | 'unstake'
-}): Promise<void> {
+}): Promise<PostTransactionSyncOutcome> {
   const { tokenId, action } = params
 
   try {
@@ -85,29 +102,37 @@ async function syncStakingStateToDb(params: {
     })
 
     let payload: SyncStakingApiResponse | null = null
+    let parseMessage: string | null = null
     try {
       payload = (await response.json()) as SyncStakingApiResponse
     } catch (parseError) {
       payload = null
+      parseMessage = parseError instanceof Error ? parseError.message : String(parseError)
       console.warn('[useStaking] Failed to parse /api/sync/staking JSON:', {
         tokenId,
         action,
         status: response.status,
-        parseError: parseError instanceof Error ? parseError.message : String(parseError),
+        parseError: parseMessage,
       })
     }
 
     const results = Array.isArray(payload?.results) ? payload!.results : []
     const failedResults = results.filter((r) => !r.success)
-    const hasFailure = !response.ok || !!payload?.error || failedResults.length > 0
+    const hasFailure =
+      !response.ok ||
+      !!payload?.error ||
+      failedResults.length > 0 ||
+      payload === null
 
     if (hasFailure) {
-      const message = buildSyncFailureMessage({
-        tokenId,
-        responseOk: response.ok,
-        status: response.status,
-        payload,
-      })
+      const message = payload === null && parseMessage
+        ? `Failed to sync staking state for #${tokenId}: ${parseMessage}`
+        : buildSyncFailureMessage({
+          tokenId,
+          responseOk: response.ok,
+          status: response.status,
+          payload,
+        })
 
       console.warn('[useStaking] /api/sync/staking failed:', {
         tokenId,
@@ -117,24 +142,44 @@ async function syncStakingStateToDb(params: {
         payload,
       })
 
-      showErrorToast('Staking Sync Failed', message)
-      return
+      showErrorToast(
+        'Staking Sync Delayed',
+        'Transaction confirmed, but map data is still syncing.'
+      )
+      return {
+        ok: false,
+        message,
+        results,
+        retryable: true,
+      }
     }
 
     if (process.env.NODE_ENV === 'development') {
       console.debug('[useStaking] /api/sync/staking succeeded:', { tokenId, action, payload })
     }
+
+    return {
+      ok: true,
+      results,
+      retryable: false,
+    }
   } catch (syncError) {
+    const message = `Failed to sync staking state for #${tokenId}. Please refresh and try again.`
     console.warn('[useStaking] Failed to sync staking state to DB:', {
       tokenId,
       action,
       error: syncError instanceof Error ? syncError.message : String(syncError),
     })
     showErrorToast(
-      'Staking Sync Failed',
-      `Failed to sync staking state for #${tokenId}. Please refresh and try again.`
+      'Staking Sync Delayed',
+      'Transaction confirmed, but map data is still syncing.'
     )
     logError(syncError, 'syncStakingStateToDb')
+    return {
+      ok: false,
+      message,
+      retryable: true,
+    }
   }
 }
 
@@ -145,20 +190,17 @@ interface UseStakingResult {
   error: ContractError | null
   txHash: TransactionHash | null
   txStatus: TransactionStatus
-  stakeWagdie: (wagdieId: number, locationId: bigint) => Promise<void>
-  unstakeWagdie: (wagdieId: number) => Promise<void>
+  stakeWagdie: (wagdieId: number, locationId: bigint) => Promise<StakingActionOutcome>
+  unstakeWagdie: (wagdieId: number) => Promise<StakingActionOutcome>
   checkApproval: (tokenId?: bigint) => Promise<boolean>
   approveForStaking: (tokenId?: bigint) => Promise<void>
+  syncStakingState: (
+    tokenId: number,
+    action?: 'stake' | 'unstake'
+  ) => Promise<PostTransactionSyncOutcome>
 }
 
 type StakingOperation = 'approve' | 'stake' | 'unstake'
-
-function missingTransactionHashError(action: string): ContractError {
-  return {
-    type: ContractErrorType.UNKNOWN,
-    message: `${action} transaction did not return a hash`,
-  }
-}
 
 export function useStaking(): UseStakingResult {
   const { address } = useAccount()
@@ -171,6 +213,131 @@ export function useStaking(): UseStakingResult {
   const [preparingOperation, setPreparingOperation] = useState<StakingOperation | null>(null)
 
   const { addTransaction, updateTransaction } = useTransactionStore()
+
+  const resetForOperation = (
+    operation: StakingOperation,
+    resetTransaction: () => void
+  ) => {
+    resetTransaction()
+    setActiveOperation(operation)
+    setLocalError(null)
+    setLocalStatus(TransactionStatus.IDLE)
+  }
+
+  const setWalletError = (): ContractError => {
+    const err = walletNotConnectedError()
+    setLocalError(err)
+    return err
+  }
+
+  const buildFailureOutcome = (
+    txId: string,
+    error: ContractError
+  ): StakingActionOutcome => ({
+    transaction: {
+      success: false,
+      txId,
+      error,
+    },
+  })
+
+  const setWrongChainError = (): ContractError => {
+    const err = createContractError(
+      ContractErrorType.NETWORK_ERROR,
+      STAKING_CHAIN_ERROR
+    )
+    setLocalError(err)
+    setLocalStatus(TransactionStatus.ERROR)
+    showTransactionErrorToast(err)
+    return err
+  }
+
+  const ensureStakingChain = async (): Promise<ContractError | null> => {
+    if (!publicClient) return setWalletError()
+
+    try {
+      const chainId = await publicClient.getChainId()
+      return chainId === STAKING_CHAIN_ID ? null : setWrongChainError()
+    } catch (err) {
+      const error = createContractError(
+        ContractErrorType.NETWORK_ERROR,
+        'Unable to verify wallet network',
+        err
+      )
+      setLocalError(error)
+      setLocalStatus(TransactionStatus.ERROR)
+      showTransactionErrorToast(error)
+      return error
+    }
+  }
+
+  const createService = async (): Promise<StakingService | null> => {
+    if (!publicClient) return null
+
+    const service = new StakingService({ publicClient, walletClient })
+    await service.initialize()
+    return service
+  }
+
+  const createWritableService = async (): Promise<StakingService | null> => {
+    if (!address || !publicClient || !walletClient) return null
+    return createService()
+  }
+
+  const runPreparedStakingOperation = async (params: {
+    operation: Extract<StakingOperation, 'stake' | 'unstake'>
+    tokenId: number
+    action: 'stake' | 'unstake'
+    failureMessage: string
+    execute: (service: StakingService) => Promise<TransactionExecutionOutcome>
+  }): Promise<StakingActionOutcome> => {
+    const { operation, tokenId, action, failureMessage, execute } = params
+
+    setLocalStatus(TransactionStatus.PENDING)
+    setPreparingOperation(operation)
+
+    try {
+      const service = await createWritableService()
+      if (!service) {
+        const err = setWalletError()
+        setLocalStatus(TransactionStatus.ERROR)
+        return buildFailureOutcome('wallet-not-connected', err)
+      }
+
+      const outcome = await execute(service)
+      let sync: PostTransactionSyncOutcome | undefined
+
+      if (outcome.success && !outcome.superseded) {
+        sync = await syncStakingStateToDb({ tokenId, action })
+        updateTransaction(outcome.txId, {
+          metadata: {
+            postTxSync: {
+              status: sync.ok ? 'success' : 'failed',
+              ...(sync.message ? { error: sync.message } : {}),
+            },
+          },
+        })
+      }
+
+      return {
+        transaction: outcome,
+        ...(sync ? { sync } : {}),
+      }
+    } catch (err) {
+      const error = createContractError(
+        ContractErrorType.UNKNOWN,
+        failureMessage,
+        err
+      )
+      setLocalError(error)
+      setLocalStatus(TransactionStatus.ERROR)
+      showTransactionErrorToast(error)
+      logError(err, `${action}Wagdie`)
+      return buildFailureOutcome(`${action}-exception`, error)
+    } finally {
+      setPreparingOperation(null)
+    }
+  }
 
   const approvalTx = useBlockchainTransaction({
     transactionType: 'approve-staking',
@@ -231,8 +398,8 @@ export function useStaking(): UseStakingResult {
 
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
-        const service = new StakingService({ publicClient, walletClient })
-        await service.initialize()
+        const service = await createService()
+        if (!service) return false
 
         // Prefer operator approval (setApprovalForAll) for "approve once, stake many"
         const operatorApproval = await service.isApprovedForStaking(address)
@@ -270,19 +437,15 @@ export function useStaking(): UseStakingResult {
   }
 
   const approveForStaking = async (tokenId?: bigint): Promise<void> => {
-    approvalTx.reset()
-    setActiveOperation('approve')
-    setLocalError(null)
-    setLocalStatus(TransactionStatus.IDLE)
+    resetForOperation('approve', approvalTx.reset)
 
     if (!address || !publicClient || !walletClient) {
-      const err: ContractError = {
-        type: ContractErrorType.UNKNOWN,
-        message: 'Wallet not connected',
-      }
-      setLocalError(err)
+      setWalletError()
       return
     }
+
+    const chainError = await ensureStakingChain()
+    if (chainError) return
 
     await approvalTx.execute(
       {
@@ -290,8 +453,10 @@ export function useStaking(): UseStakingResult {
         tokenId: tokenId?.toString() ?? 'all',
       },
       async (_params, context) => {
-        const service = new StakingService({ publicClient, walletClient })
-        await service.initialize()
+        const service = await createWritableService()
+        if (!service) {
+          return { error: walletNotConnectedError() }
+        }
 
         return confirmContractTransaction({
           transaction: () => service.approveForStaking(address, tokenId),
@@ -303,169 +468,141 @@ export function useStaking(): UseStakingResult {
     )
   }
 
-  const stakeWagdie = async (wagdieId: number, locationId: bigint): Promise<void> => {
-    stakeTx.reset()
-    setActiveOperation('stake')
-    setLocalError(null)
-    setLocalStatus(TransactionStatus.IDLE)
+  const stakeWagdie = async (
+    wagdieId: number,
+    locationId: bigint
+  ): Promise<StakingActionOutcome> => {
+    resetForOperation('stake', stakeTx.reset)
 
     if (!address || !publicClient || !walletClient) {
-      const err: ContractError = {
-        type: ContractErrorType.UNKNOWN,
-        message: 'Wallet not connected',
-      }
-      setLocalError(err)
-      return
+      const err = setWalletError()
+      return buildFailureOutcome('wallet-not-connected', err)
     }
 
-    setLocalStatus(TransactionStatus.PENDING)
-    setPreparingOperation('stake')
+    const chainError = await ensureStakingChain()
+    if (chainError) return buildFailureOutcome('wrong-chain', chainError)
 
-    try {
-      const service = new StakingService({ publicClient, walletClient })
-      await service.initialize()
-
-      if (locationId <= 0n) {
-        const err: ContractError = {
-          type: ContractErrorType.INVALID_PARAMS,
-          message: 'Invalid location ID',
+    return runPreparedStakingOperation({
+      operation: 'stake',
+      tokenId: wagdieId,
+      action: 'stake',
+      failureMessage: 'Failed to stake character',
+      execute: async (service) => {
+        if (locationId <= 0n) {
+          const err = createContractError(
+            ContractErrorType.INVALID_PARAMS,
+            'Invalid location ID'
+          )
+          setLocalError(err)
+          setLocalStatus(TransactionStatus.ERROR)
+          return { success: false, txId: 'invalid-location', error: err }
         }
-        setLocalError(err)
-        setLocalStatus(TransactionStatus.ERROR)
-        return
-      }
 
-      const stakingEnabled = await service.isStakingEnabled()
-      if (stakingEnabled.error) {
-        setLocalError(stakingEnabled.error)
-        setLocalStatus(TransactionStatus.ERROR)
-        showTransactionErrorToast(stakingEnabled.error)
-        return
-      }
-
-      if (!stakingEnabled.data) {
-        const err: ContractError = {
-          type: ContractErrorType.CONTRACT_ERROR,
-          message: 'Staking is currently disabled',
+        const stakingEnabled = await service.isStakingEnabled()
+        if (stakingEnabled.error) {
+          setLocalError(stakingEnabled.error)
+          setLocalStatus(TransactionStatus.ERROR)
+          showTransactionErrorToast(stakingEnabled.error)
+          return {
+            success: false,
+            txId: 'staking-enabled-check',
+            error: stakingEnabled.error,
+          }
         }
-        setLocalError(err)
-        setLocalStatus(TransactionStatus.ERROR)
-        showErrorToast('Staking Disabled', 'Staking is currently disabled on the contract')
-        return
-      }
 
-      // Check if approved
-      const isApproved = await checkApproval(BigInt(wagdieId))
+        if (!stakingEnabled.data) {
+          const err = createContractError(
+            ContractErrorType.CONTRACT_ERROR,
+            'Staking is currently disabled'
+          )
+          setLocalError(err)
+          setLocalStatus(TransactionStatus.ERROR)
+          showErrorToast('Staking Disabled', 'Staking is currently disabled on the contract')
+          return { success: false, txId: 'staking-disabled', error: err }
+        }
 
-      if (process.env.NODE_ENV === 'development') {
-        const chainId = await publicClient.getChainId()
-        console.debug('[useStaking] stakeWagdie', {
-          wagdieId,
-          locationId,
-          locationIdString: locationId.toString(),
-          chainId,
-          address,
-          isApproved,
+        // Check if approved
+        const isApproved = await checkApproval(BigInt(wagdieId))
+
+        if (process.env.NODE_ENV === 'development') {
+          const chainId = await publicClient.getChainId()
+          console.debug('[useStaking] stakeWagdie', {
+            wagdieId,
+            locationId,
+            locationIdString: locationId.toString(),
+            chainId,
+            address,
+            isApproved,
+          })
+        }
+
+        if (!isApproved) {
+          const err = createContractError(
+            ContractErrorType.CONTRACT_ERROR,
+            'Please approve the staking contract first'
+          )
+          setLocalError(err)
+          showApprovalRequiredToast('Staking Contract')
+          setLocalStatus(TransactionStatus.ERROR)
+          return { success: false, txId: 'staking-approval-required', error: err }
+        }
+
+        const params: StakeWagdiesParams[] = [{ wagdieId, locationId }]
+        return stakeTx.execute({ wagdieId, locationId }, async (_params, context) => {
+          return confirmContractTransaction({
+            transaction: () => service.stakeWagdies(params, address),
+            service,
+            context,
+            missingHashError: missingTransactionHashError('Stake'),
+          })
         })
-      }
-
-      if (!isApproved) {
-        const err: ContractError = {
-          type: ContractErrorType.CONTRACT_ERROR,
-          message: 'Please approve the staking contract first',
-        }
-        setLocalError(err)
-        showApprovalRequiredToast('Staking Contract')
-        setLocalStatus(TransactionStatus.ERROR)
-        return
-      }
-
-      const params: StakeWagdiesParams[] = [{ wagdieId, locationId }]
-      const outcome = await stakeTx.execute({ wagdieId, locationId }, async (_params, context) => {
-        return confirmContractTransaction({
-          transaction: () => service.stakeWagdies(params, address),
-          service,
-          context,
-          missingHashError: missingTransactionHashError('Stake'),
-        })
-      })
-
-      if (outcome.success && !outcome.superseded) {
-        await syncStakingStateToDb({ tokenId: wagdieId, action: 'stake' })
-      }
-    } catch (err) {
-      const error: ContractError = {
-        type: ContractErrorType.UNKNOWN,
-        message: 'Failed to stake character',
-        originalError: err instanceof Error ? err : undefined,
-      }
-      setLocalError(error)
-      setLocalStatus(TransactionStatus.ERROR)
-      showTransactionErrorToast(error)
-      logError(err, 'stakeWagdie')
-    } finally {
-      setPreparingOperation(null)
-    }
+      },
+    })
   }
 
-  const unstakeWagdie = async (wagdieId: number): Promise<void> => {
-    unstakeTx.reset()
-    setActiveOperation('unstake')
-    setLocalError(null)
-    setLocalStatus(TransactionStatus.IDLE)
+  const unstakeWagdie = async (wagdieId: number): Promise<StakingActionOutcome> => {
+    resetForOperation('unstake', unstakeTx.reset)
 
     if (!address || !publicClient || !walletClient) {
-      const err: ContractError = {
-        type: ContractErrorType.UNKNOWN,
-        message: 'Wallet not connected',
-      }
-      setLocalError(err)
-      return
+      const err = setWalletError()
+      return buildFailureOutcome('wallet-not-connected', err)
     }
 
-    setLocalStatus(TransactionStatus.PENDING)
-    setPreparingOperation('unstake')
+    const chainError = await ensureStakingChain()
+    if (chainError) return buildFailureOutcome('wrong-chain', chainError)
 
-    try {
-      const service = new StakingService({ publicClient, walletClient })
-      await service.initialize()
+    return runPreparedStakingOperation({
+      operation: 'unstake',
+      tokenId: wagdieId,
+      action: 'unstake',
+      failureMessage: 'Failed to unstake character',
+      execute: async (service) => {
+        if (process.env.NODE_ENV === 'development') {
+          const chainId = await publicClient.getChainId()
+          console.debug('[useStaking] unstakeWagdie', {
+            wagdieId,
+            chainId,
+            address,
+          })
+        }
 
-      if (process.env.NODE_ENV === 'development') {
-        const chainId = await publicClient.getChainId()
-        console.debug('[useStaking] unstakeWagdie', {
-          wagdieId,
-          chainId,
-          address,
+        const params: UnstakeWagdiesParams[] = [{ wagdieId }]
+        return unstakeTx.execute({ wagdieId }, async (_params, context) => {
+          return confirmContractTransaction({
+            transaction: () => service.unstakeWagdies(params, address),
+            service,
+            context,
+            missingHashError: missingTransactionHashError('Unstake'),
+          })
         })
-      }
-
-      const params: UnstakeWagdiesParams[] = [{ wagdieId }]
-      const outcome = await unstakeTx.execute({ wagdieId }, async (_params, context) => {
-        return confirmContractTransaction({
-          transaction: () => service.unstakeWagdies(params, address),
-          service,
-          context,
-          missingHashError: missingTransactionHashError('Unstake'),
-        })
-      })
-
-      if (outcome.success && !outcome.superseded) {
-        await syncStakingStateToDb({ tokenId: wagdieId, action: 'unstake' })
-      }
-    } catch (err) {
-      const error: ContractError = {
-        type: ContractErrorType.UNKNOWN,
-        message: 'Failed to unstake character',
-        originalError: err instanceof Error ? err : undefined,
-      }
-      setLocalError(error)
-      setLocalStatus(TransactionStatus.ERROR)
-      showTransactionErrorToast(error)
-      logError(err, 'unstakeWagdie')
-    } finally {
-      setPreparingOperation(null)
-    }
+      },
+    })
   }
+
+  const syncStakingState = async (
+    tokenId: number,
+    action: 'stake' | 'unstake' = 'stake'
+  ): Promise<PostTransactionSyncOutcome> => syncStakingStateToDb({ tokenId, action })
 
   const activeTx =
     activeOperation === 'approve'
@@ -486,6 +623,7 @@ export function useStaking(): UseStakingResult {
     unstakeWagdie,
     checkApproval,
     approveForStaking,
+    syncStakingState,
   }
 }
 
@@ -520,11 +658,11 @@ export function useStakingStatus(wagdieId: number | null) {
         setStatus(result.data)
       }
     } catch (err) {
-      const error: ContractError = {
-        type: ContractErrorType.UNKNOWN,
-        message: 'Failed to fetch staking status',
-        originalError: err instanceof Error ? err : undefined,
-      }
+      const error = createContractError(
+        ContractErrorType.UNKNOWN,
+        'Failed to fetch staking status',
+        err
+      )
       setError(error)
       logError(err, 'useStakingStatus')
     } finally {

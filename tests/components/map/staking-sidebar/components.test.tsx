@@ -3,6 +3,9 @@ import { ApprovalBanner, ApprovalReadyBanner } from '@/components/map/staking-si
 import { LocationTabs } from '@/components/map/staking-sidebar/LocationTabs';
 import { PaginationControls } from '@/components/map/staking-sidebar/PaginationControls';
 import { WalletGate } from '@/components/map/staking-sidebar/WalletGate';
+import { CharacterStakeList } from '@/components/map/staking-sidebar/CharacterStakeList';
+import { StakedHereList } from '@/components/map/staking-sidebar/StakedHereList';
+import type { StakableCharacter } from '@/hooks/map/useMapStakingPanel';
 
 describe('staking-sidebar presentational components', () => {
   it('renders wallet gate copy', () => {
@@ -110,5 +113,128 @@ describe('staking-sidebar presentational components', () => {
 
     expect(screen.getByText('Approval check failed')).toBeInTheDocument();
     expect(screen.getByText('Approval check timed out')).toBeInTheDocument();
+  });
+
+  it('disables owned-character unstake actions when canUnstakeNow is false', () => {
+    const character: StakableCharacter = {
+      token_id: 7,
+      name: 'Wagdie #7',
+      image_url: '/images/placeholder-character.svg',
+      isStaked: true,
+    };
+
+    render(
+      <CharacterStakeList
+        allCharacters={[character]}
+        activeTokenId={null}
+        isStaking={false}
+        isUnstaking={false}
+        isLoadingStatuses={false}
+        canStakeNow
+        canUnstakeNow={false}
+        handleStake={jest.fn()}
+        handleUnstake={jest.fn()}
+      />
+    );
+
+    expect(screen.getByRole('button', { name: 'Unstake' })).toBeDisabled();
+  });
+
+  it('disables staked-here unstake actions when canUnstakeNow is false', () => {
+    render(
+      <StakedHereList
+        stakedHere={[
+          {
+            token_id: 7,
+            name: 'Wagdie #7',
+            image_url: '/images/placeholder-character.svg',
+            owner_address: '0xabc',
+            staker_address: '0xabc',
+          } as any,
+        ]}
+        effectiveWallet="0xabc"
+        activeTokenId={null}
+        isUnstaking={false}
+        isLoadingStatuses={false}
+        canUnstakeNow={false}
+        handleUnstake={jest.fn()}
+      />
+    );
+
+    expect(screen.getByRole('button', { name: 'Unstake' })).toBeDisabled();
+  });
+
+  it('disables matching owned-character stake and unstake actions while sync is pending', () => {
+    const unstakedCharacter: StakableCharacter = {
+      token_id: 7,
+      name: 'Wagdie #7',
+      image_url: '/images/placeholder-character.svg',
+      isStaked: false,
+    };
+    const stakedCharacter: StakableCharacter = {
+      token_id: 8,
+      name: 'Wagdie #8',
+      image_url: '/images/placeholder-character.svg',
+      isStaked: true,
+    };
+
+    const { rerender } = render(
+      <CharacterStakeList
+        allCharacters={[unstakedCharacter]}
+        activeTokenId={null}
+        isStaking={false}
+        isUnstaking={false}
+        isLoadingStatuses={false}
+        canStakeNow
+        canUnstakeNow
+        pendingSyncTokenIds={new Set([7])}
+        handleStake={jest.fn()}
+        handleUnstake={jest.fn()}
+      />
+    );
+
+    expect(screen.getByRole('button', { name: 'Stake' })).toBeDisabled();
+
+    rerender(
+      <CharacterStakeList
+        allCharacters={[stakedCharacter]}
+        activeTokenId={null}
+        isStaking={false}
+        isUnstaking={false}
+        isLoadingStatuses={false}
+        canStakeNow
+        canUnstakeNow
+        pendingSyncTokenIds={new Set([8])}
+        handleStake={jest.fn()}
+        handleUnstake={jest.fn()}
+      />
+    );
+
+    expect(screen.getByRole('button', { name: 'Unstake' })).toBeDisabled();
+  });
+
+  it('disables matching staked-here unstake actions while sync is pending', () => {
+    render(
+      <StakedHereList
+        stakedHere={[
+          {
+            token_id: 7,
+            name: 'Wagdie #7',
+            image_url: '/images/placeholder-character.svg',
+            owner_address: '0xabc',
+            staker_address: '0xabc',
+          } as any,
+        ]}
+        effectiveWallet="0xabc"
+        activeTokenId={null}
+        isUnstaking={false}
+        isLoadingStatuses={false}
+        canUnstakeNow
+        pendingSyncTokenIds={new Set([7])}
+        handleUnstake={jest.fn()}
+      />
+    );
+
+    expect(screen.getByRole('button', { name: 'Unstake' })).toBeDisabled();
   });
 });
