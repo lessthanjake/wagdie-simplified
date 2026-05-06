@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { parseTokenIdParam } from '@/lib/api/params'
+import { NextRequest } from 'next/server'
+import { parseIntegerBodyParam, parseStringBodyParam, parseTokenIdParam } from '@/lib/api/params'
+import { getErrorMessage, jsonNoStore, jsonNoStoreError, parseJsonBody } from '@/lib/api/responses'
 import {
   getConfiguredSearingChainId,
   searingMaterializationService,
@@ -7,10 +8,6 @@ import {
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
-
-const NO_STORE_HEADERS = {
-  'Cache-Control': 'no-store',
-} as const
 
 type SyncBody = {
   transactionHash?: unknown
@@ -21,16 +18,6 @@ type SyncBody = {
   repairCompleted?: unknown
 }
 
-function asString(value: unknown): string | null {
-  return typeof value === 'string' && value.trim() ? value.trim() : null
-}
-
-function asChainId(value: unknown): number | undefined {
-  if (value === undefined || value === null) return undefined
-  if (typeof value !== 'number' || !Number.isInteger(value)) return undefined
-  return value
-}
-
 export async function POST(
   request: NextRequest,
   context: { params: Promise<{ tokenId: string }> }
@@ -38,39 +25,25 @@ export async function POST(
   const params = await context.params
   const tokenId = parseTokenIdParam(params.tokenId, { min: 0 })
   if (tokenId === null) {
-    return NextResponse.json(
-      { error: 'Invalid token ID' },
-      { status: 400, headers: NO_STORE_HEADERS }
-    )
+    return jsonNoStoreError('Invalid token ID', 400)
   }
 
-  let body: SyncBody = {}
-  try {
-    const parsed = await request.json()
-    body = parsed && typeof parsed === 'object' ? parsed as SyncBody : {}
-  } catch {
-    body = {}
-  }
+  const parsedBody = await parseJsonBody<unknown>(request)
+  const body: SyncBody = parsedBody && typeof parsedBody === 'object' ? parsedBody as SyncBody : {}
 
-  const transactionHash = asString(body.transactionHash) || asString(body.txHash)
+  const transactionHash = parseStringBodyParam(body.transactionHash) || parseStringBodyParam(body.txHash)
   const retryFailed = body.retryFailed === true
   const repairCompleted = body.repairCompleted === true
 
   try {
     if (!transactionHash) {
-      return NextResponse.json(
-        { error: 'transactionHash is required for public searing sync' },
-        { status: 400, headers: NO_STORE_HEADERS }
-      )
+      return jsonNoStoreError('transactionHash is required for public searing sync', 400)
     }
 
-    const requestedChainId = asChainId(body.chainId)
+    const requestedChainId = parseIntegerBodyParam(body.chainId)
     const configuredChainId = getConfiguredSearingChainId()
     if (requestedChainId !== undefined && requestedChainId !== configuredChainId) {
-      return NextResponse.json(
-        { error: 'chainId does not match server configuration' },
-        { status: 400, headers: NO_STORE_HEADERS }
-      )
+      return jsonNoStoreError('chainId does not match server configuration', 400)
     }
 
     const result = await searingMaterializationService.verifyTransactionAndMaterialize({
@@ -79,13 +52,10 @@ export async function POST(
       retryFailed,
       repairCompleted,
     })
-    return NextResponse.json(result, { headers: NO_STORE_HEADERS })
+    return jsonNoStore(result)
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to sync searing materialization'
+    const message = getErrorMessage(error, 'Failed to sync searing materialization')
     const status = message === 'Invalid transaction hash' ? 400 : 500
-    return NextResponse.json(
-      { error: message },
-      { status, headers: NO_STORE_HEADERS }
-    )
+    return jsonNoStoreError(message, status)
   }
 }

@@ -23,7 +23,10 @@ import {
   showApprovalSuccessToast,
 } from '@/lib/utils/toast'
 import {
+  createContractError,
   confirmContractTransaction,
+  missingTransactionHashError,
+  walletNotConnectedError,
   useBlockchainTransaction,
 } from './useBlockchainTransaction'
 
@@ -56,13 +59,6 @@ interface UseSearingResult {
 
 type SearingOperation = 'approve' | 'sear'
 
-function missingTransactionHashError(action: string): ContractError {
-  return {
-    type: ContractErrorType.UNKNOWN,
-    message: `${action} transaction did not return a hash`,
-  }
-}
-
 export function useSearing(): UseSearingResult {
   const { address } = useAccount()
   const publicClient = usePublicClient()
@@ -82,6 +78,27 @@ export function useSearing(): UseSearingResult {
     const service = new SearingService({ publicClient, walletClient })
     await service.initialize()
     return service
+  }
+
+  const createWritableService = async (): Promise<SearingService | null> => {
+    if (!address || !publicClient || !walletClient) return null
+    return createService()
+  }
+
+  const resetForOperation = (
+    operation: SearingOperation,
+    resetTransaction: () => void
+  ) => {
+    resetTransaction()
+    setActiveOperation(operation)
+    setLocalError(null)
+    setLocalStatus(TransactionStatus.IDLE)
+  }
+
+  const setWalletError = (): ContractError => {
+    const err = walletNotConnectedError()
+    setLocalError(err)
+    return err
   }
 
   const approvalTx = useBlockchainTransaction({
@@ -156,23 +173,19 @@ export function useSearing(): UseSearingResult {
   }
 
   const approveForSearing = async (): Promise<void> => {
-    approvalTx.reset()
-    setActiveOperation('approve')
-    setLocalError(null)
-    setLocalStatus(TransactionStatus.IDLE)
+    resetForOperation('approve', approvalTx.reset)
 
     if (!address || !publicClient || !walletClient) {
-      const err: ContractError = {
-        type: ContractErrorType.UNKNOWN,
-        message: 'Wallet not connected',
-      }
-      setLocalError(err)
+      setWalletError()
       return
     }
 
     const outcome = await approvalTx.execute({ address }, async (_params, context) => {
-      const service = new SearingService({ publicClient, walletClient })
-      await service.initialize()
+      const service = await createWritableService()
+      if (!service) {
+        return { error: walletNotConnectedError() }
+      }
+
       let submittedApprovals = 0
 
       const result = await service.approveForSearing(address, {
@@ -231,11 +244,11 @@ export function useSearing(): UseSearingResult {
 
       return result.data ?? null
     } catch (err) {
-      const error: ContractError = {
-        type: ContractErrorType.UNKNOWN,
-        message: 'Failed to fetch Concord balance',
-        originalError: err instanceof Error ? err : undefined,
-      }
+      const error = createContractError(
+        ContractErrorType.UNKNOWN,
+        'Failed to fetch Concord balance',
+        err
+      )
       setLocalError(error)
       logError(err, 'getConcordBalance')
       return null
@@ -260,11 +273,11 @@ export function useSearing(): UseSearingResult {
 
       return result.data ?? []
     } catch (err) {
-      const error: ContractError = {
-        type: ContractErrorType.UNKNOWN,
-        message: 'Failed to fetch Concord balances',
-        originalError: err instanceof Error ? err : undefined,
-      }
+      const error = createContractError(
+        ContractErrorType.UNKNOWN,
+        'Failed to fetch Concord balances',
+        err
+      )
       setLocalError(error)
       logError(err, 'getConcordBalances')
       return []
@@ -275,17 +288,10 @@ export function useSearing(): UseSearingResult {
     wagdieId: number,
     concordId: number
   ): Promise<SearingTransactionResult> => {
-    searTx.reset()
-    setActiveOperation('sear')
-    setLocalError(null)
-    setLocalStatus(TransactionStatus.IDLE)
+    resetForOperation('sear', searTx.reset)
 
     if (!address || !publicClient || !walletClient) {
-      const err: ContractError = {
-        type: ContractErrorType.UNKNOWN,
-        message: 'Wallet not connected',
-      }
-      setLocalError(err)
+      const err = setWalletError()
       return { success: false, error: err }
     }
 
@@ -293,16 +299,20 @@ export function useSearing(): UseSearingResult {
     setPreparingOperation('sear')
 
     try {
-      const service = new SearingService({ publicClient, walletClient })
-      await service.initialize()
+      const service = await createWritableService()
+      if (!service) {
+        const err = setWalletError()
+        setLocalStatus(TransactionStatus.ERROR)
+        return { success: false, error: err }
+      }
 
       // Check if both WAGDIE and Concord contracts are approved.
       const isApproved = await checkApproval()
       if (!isApproved) {
-        const err: ContractError = {
-          type: ContractErrorType.CONTRACT_ERROR,
-          message: 'Please approve WAGDIE and Concord access for the searing contract first',
-        }
+        const err = createContractError(
+          ContractErrorType.CONTRACT_ERROR,
+          'Please approve WAGDIE and Concord access for the searing contract first'
+        )
         setLocalError(err)
         showApprovalRequiredToast('Searing Contract')
         setLocalStatus(TransactionStatus.ERROR)
@@ -325,11 +335,11 @@ export function useSearing(): UseSearingResult {
         error: outcome.error,
       }
     } catch (err) {
-      const error: ContractError = {
-        type: ContractErrorType.UNKNOWN,
-        message: 'Failed to sear concords',
-        originalError: err instanceof Error ? err : undefined,
-      }
+      const error = createContractError(
+        ContractErrorType.UNKNOWN,
+        'Failed to sear concords',
+        err
+      )
       setLocalError(error)
       setLocalStatus(TransactionStatus.ERROR)
       showTransactionErrorToast(error)
@@ -390,11 +400,11 @@ export function useSearingStatus(wagdieId: number | null) {
         setStatus(result.data)
       }
     } catch (err) {
-      const error: ContractError = {
-        type: ContractErrorType.UNKNOWN,
-        message: 'Failed to fetch searing status',
-        originalError: err instanceof Error ? err : undefined,
-      }
+      const error = createContractError(
+        ContractErrorType.UNKNOWN,
+        'Failed to fetch searing status',
+        err
+      )
       setError(error)
       logError(err, 'useSearingStatus')
     } finally {

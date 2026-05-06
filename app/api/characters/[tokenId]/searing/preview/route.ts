@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { parseTokenIdParam } from '@/lib/api/params'
+import { parseStrictPositiveIntParam, parseTokenIdParam } from '@/lib/api/params'
+import { getErrorMessage, jsonNoStoreError, withNoStoreHeaders } from '@/lib/api/responses'
 import { resolveSearingLayersForCharacter, validateSearingLayerResolution } from '@/lib/domain/searing/searing-layer-resolver'
 import { CHARACTERS_TABLE } from '@/lib/db/tables'
 import { searingMapMaterializationRepository } from '@/lib/repositories/searing-map-materialization-repository'
@@ -10,19 +11,9 @@ import type { CharacterMetadata } from '@/types/character'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-const NO_STORE_HEADERS = {
-  'Cache-Control': 'no-store',
-} as const
-
 type PreviewCharacter = {
   token_id: number
   metadata: CharacterMetadata | null
-}
-
-function parseConcordId(value: string | null): number | null {
-  if (!value) return null
-  const parsed = Number(value)
-  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null
 }
 
 export async function GET(
@@ -31,29 +22,20 @@ export async function GET(
 ) {
   const params = await context.params
   const tokenId = parseTokenIdParam(params.tokenId, { min: 1 })
-  const concordId = parseConcordId(request.nextUrl.searchParams.get('concordId'))
+  const concordId = parseStrictPositiveIntParam(request.nextUrl.searchParams.get('concordId'), { min: 1 })
 
   if (tokenId === null) {
-    return NextResponse.json(
-      { error: 'Invalid token ID' },
-      { status: 400, headers: NO_STORE_HEADERS }
-    )
+    return jsonNoStoreError('Invalid token ID', 400)
   }
 
   if (concordId === null) {
-    return NextResponse.json(
-      { error: 'concordId is required' },
-      { status: 400, headers: NO_STORE_HEADERS }
-    )
+    return jsonNoStoreError('concordId is required', 400)
   }
 
   try {
     const admin = getSupabaseAdmin()
     if (!admin) {
-      return NextResponse.json(
-        { error: 'Supabase admin client not configured' },
-        { status: 500, headers: NO_STORE_HEADERS }
-      )
+      return jsonNoStoreError('Supabase admin client not configured', 500)
     }
 
     const [characterResult, concord] = await Promise.all([
@@ -72,17 +54,11 @@ export async function GET(
     const character = characterResult.data as PreviewCharacter | null
 
     if (!character) {
-      return NextResponse.json(
-        { error: `Character ${tokenId} not found` },
-        { status: 404, headers: NO_STORE_HEADERS }
-      )
+      return jsonNoStoreError(`Character ${tokenId} not found`, 404)
     }
 
     if (!concord) {
-      return NextResponse.json(
-        { error: `No searing map found for concord ${concordId}` },
-        { status: 404, headers: NO_STORE_HEADERS }
-      )
+      return jsonNoStoreError(`No searing map found for concord ${concordId}`, 404)
     }
 
     const resolution = resolveSearingLayersForCharacter(character.metadata, concord)
@@ -91,19 +67,13 @@ export async function GET(
 
     return new NextResponse(new Uint8Array(composed.image), {
       status: 200,
-      headers: {
-        ...NO_STORE_HEADERS,
+      headers: withNoStoreHeaders({
         'Content-Type': 'image/png',
         'X-Searing-Location': resolution.variant.location,
         'X-Searing-Trait': resolution.variant.newTrait,
-      },
+      }),
     })
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : 'Failed to generate searing preview',
-      },
-      { status: 500, headers: NO_STORE_HEADERS }
-    )
+    return jsonNoStoreError(getErrorMessage(error, 'Failed to generate searing preview'), 500)
   }
 }
