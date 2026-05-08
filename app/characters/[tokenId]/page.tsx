@@ -237,7 +237,7 @@ export default function CharacterDetailPage() {
                 {!isEditMode && <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3"><Card className="bg-midnight/50"><CardContent className="p-3 text-center"><p className="text-[20px] font-display tracking-widest text-mist mb-1 lowercase">token</p><p className="text-2xl font-display text-bone">#{tokenId}</p></CardContent></Card></div>}
               </div>
 
-              {(hasCharacterSheet || (isOwner && isEditMode)) && <CoreStatsEditor stats={isEditMode ? editor.state.coreStats : attrs} isOwner={isOwner} isEditMode={isEditMode} onChange={editor.setCoreStats} className="h-full" />}
+              {(hasCharacterSheet || (isOwner && isEditMode)) && <CoreStatsEditor stats={isEditMode ? editor.state.coreStats : attrs} isOwner={isOwner} isEditMode={isEditMode} onChange={editor.setCoreStats} />}
               {isOwner && !hasAnyStats && !isEditMode && <EmptyStatsPrompt onAssignStats={handleAssignStats} />}
               {isOwner && <CharacterActions isInfected={character.infection_status === 'infected'} onSear={() => setIsSearingModalOpen(true)} onInfect={() => setIsInfectionModalOpen(true)} onCure={() => setIsCureModalOpen(true)} />}
             </div>

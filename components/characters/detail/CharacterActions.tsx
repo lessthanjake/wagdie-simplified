@@ -39,7 +39,7 @@ export function CharacterActions({
   onCure,
 }: CharacterActionsProps) {
   return (
-    <Card className="mt-auto">
+    <Card className="mt-auto shrink-0">
       <CardContent className="p-4">
         <p className="text-[16px] font-display tracking-widest text-mist mb-3 lowercase">
           blockchain actions
