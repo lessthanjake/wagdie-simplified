@@ -16,8 +16,16 @@ import type {
 } from '../types/map';
 import { normalizeLocationMetadata } from '@/lib/domain/location/metadata';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+// Server-side repository calls prefer SUPABASE_URL so Docker can query the internal Kong URL.
+// Browser/client imports keep using NEXT_PUBLIC_SUPABASE_URL.
+const supabaseUrl =
+  typeof window === 'undefined'
+    ? process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL!
+    : process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseKey =
+  typeof window === 'undefined'
+    ? process.env.SUPABASE_ANON_KEY || process.env.ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    : process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 // Use service role key for write operations if available
 const supabaseServiceKey =
@@ -30,8 +38,10 @@ const supabaseAdmin = supabaseServiceKey
   ? createClient(supabaseUrl, supabaseServiceKey)
   : supabase;
 
+const hasSupabaseServiceKey = Boolean(supabaseServiceKey);
+
 function requireServiceRoleKey(operation: string): void {
-  if (supabaseServiceKey) return;
+  if (hasSupabaseServiceKey) return;
   throw new Error(
     `Missing Supabase service role key for '${operation}'. Set SUPABASE_SERVICE_ROLE_KEY (recommended) or SUPABASE_SERVICE_KEY.`
   );
@@ -427,7 +437,7 @@ export class LocationRepository implements ILocationRepository {
         .maybeSingle();
 
       if (response.error) {
-        const usingServiceRole = Boolean(supabaseServiceKey);
+        const usingServiceRole = hasSupabaseServiceKey;
         throw new Error(
           `Failed to update location '${id}': ${formatSupabaseError(response.error)} (status=${response.status} serviceRole=${usingServiceRole})`
         );

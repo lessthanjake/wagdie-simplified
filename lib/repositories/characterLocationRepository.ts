@@ -20,8 +20,15 @@ import type {
 } from '../types/map';
 import { normalizeLocationMetadata } from '@/lib/domain/location/metadata';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+// Server-side calls should use SUPABASE_URL when available so Docker can query the internal API.
+const supabaseUrl =
+  typeof window === 'undefined'
+    ? process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL!
+    : process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseKey =
+  typeof window === 'undefined'
+    ? process.env.SUPABASE_ANON_KEY || process.env.ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    : process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
