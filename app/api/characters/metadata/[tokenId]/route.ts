@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises'
+import { access, readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { NextRequest } from 'next/server'
 import { parseTokenIdParam } from '@/lib/api/params'
@@ -8,6 +8,7 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 const METADATA_DIR = path.join(process.cwd(), 'public/metadata/characters')
+const CHARACTER_IMAGES_DIR = path.join(process.cwd(), 'public/images/characters')
 const SUCCESS_CACHE_CONTROL = 'public, max-age=300, s-maxage=3600, stale-while-revalidate=86400'
 const METADATA_CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -24,6 +25,30 @@ function withCorsHeaders(headers?: HeadersInit): Headers {
 
 function isFileNotFoundError(error: unknown): error is NodeJS.ErrnoException {
   return error instanceof Error && 'code' in error && error.code === 'ENOENT'
+}
+
+function isPlaceholderAnimationUrl(value: unknown): boolean {
+  if (typeof value !== 'string' || value.length === 0) {
+    return false
+  }
+
+  try {
+    const url = new URL(value, 'https://fateofwagdie.com')
+    return /^\/characters\/\d+\/animated\/?$/.test(url.pathname)
+  } catch {
+    return false
+  }
+}
+
+async function getHostedCharacterImageUrl(tokenId: number, appOrigin: string): Promise<string | null> {
+  const imagePath = path.join(CHARACTER_IMAGES_DIR, `${tokenId}.png`)
+
+  try {
+    await access(imagePath)
+    return `${appOrigin}/images/characters/${tokenId}.png?v=metadata-20260509`
+  } catch {
+    return null
+  }
 }
 
 export async function OPTIONS() {
@@ -54,11 +79,17 @@ export async function GET(
     const appOrigin = configuredAppUrl && !configuredAppUrl.includes('localhost')
       ? configuredAppUrl.replace(/\/$/, '')
       : 'https://fateofwagdie.com'
-
-    return jsonRaw({
+    const hostedImageUrl = await getHostedCharacterImageUrl(tokenId, appOrigin)
+    const responseMetadata = {
       ...metadata,
-      animation_url: `${appOrigin}/api/characters/animation/${tokenId}`,
-    }, {
+      ...(hostedImageUrl ? { image: hostedImageUrl } : {}),
+    }
+
+    if (isPlaceholderAnimationUrl(responseMetadata.animation_url)) {
+      delete responseMetadata.animation_url
+    }
+
+    return jsonRaw(responseMetadata, {
       headers: withCorsHeaders({
         'Cache-Control': SUCCESS_CACHE_CONTROL,
       }),
