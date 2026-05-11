@@ -170,7 +170,7 @@ services:
       - "3001:3001"
     environment:
       NODE_ENV: production
-      ELIZAOS_ENV: ${ELIZAOS_ENV:-development}
+      ELIZAOS_ENV: ${ELIZAOS_ENV:-production}
       PORT: 3001
       HOST: 0.0.0.0
       DISABLE_WEB_UI: "true"
@@ -220,6 +220,8 @@ services:
     depends_on:
       kong:
         condition: service_started
+      elizaos:
+        condition: service_healthy
     env_file:
       - .env.docker
     environment:
