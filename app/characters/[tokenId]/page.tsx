@@ -25,6 +25,8 @@ import { isAdmin } from '@/lib/auth/admin'
 
 import { useChatDock } from '@/contexts/ChatDockContext'
 
+const showLoreNav = process.env.NEXT_PUBLIC_SHOW_LORE_NAV === 'true'
+
 export default function CharacterDetailPage() {
   const params = useParams()
   const router = useRouter()
