@@ -15,6 +15,14 @@ export const authHandlers = [
     return HttpResponse.json({ success: true });
   }),
 
+  http.get('/api/auth/me', () => {
+    return HttpResponse.json({
+      address: '0x1234567890123456789012345678901234567890',
+      expires: Date.now() + 7 * 24 * 60 * 60 * 1000,
+      selectedCharacter: null,
+    });
+  }),
+
   http.post('/api/auth/logout', () => {
     return HttpResponse.json({ success: true });
   }),

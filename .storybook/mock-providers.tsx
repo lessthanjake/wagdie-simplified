@@ -15,11 +15,28 @@ import React, { createContext, useContext, ReactNode } from 'react';
 const MockAuthContext = createContext({
   address: '0x1234567890123456789012345678901234567890',
   isConnected: true,
+  isConnecting: false,
   isAuthenticated: true,
   isAuthenticating: false,
+  isHydrating: false,
+  hasHydrated: true,
+  hydrationStatus: 'matched',
+  session: {
+    address: '0x1234567890123456789012345678901234567890',
+    expires: Date.now() + 7 * 24 * 60 * 60 * 1000,
+    selectedCharacter: null,
+  },
+  siweStep: 'complete',
   error: null,
   connect: () => {},
   disconnect: async () => {},
+  authenticate: async () => {},
+  refreshSession: async () => ({
+    address: '0x1234567890123456789012345678901234567890',
+    expires: Date.now() + 7 * 24 * 60 * 60 * 1000,
+    selectedCharacter: null,
+  }),
+  clearError: () => {},
 });
 
 /**
@@ -67,11 +84,28 @@ export const MockAuthProvider = ({ children }: { children: ReactNode }) => {
       value={{
         address: '0x1234567890123456789012345678901234567890',
         isConnected: true,
+        isConnecting: false,
         isAuthenticated: true,
         isAuthenticating: false,
+        isHydrating: false,
+        hasHydrated: true,
+        hydrationStatus: 'matched',
+        session: {
+          address: '0x1234567890123456789012345678901234567890',
+          expires: Date.now() + 7 * 24 * 60 * 60 * 1000,
+          selectedCharacter: null,
+        },
+        siweStep: 'complete',
         error: null,
         connect: () => {},
         disconnect: async () => {},
+        authenticate: async () => {},
+        refreshSession: async () => ({
+          address: '0x1234567890123456789012345678901234567890',
+          expires: Date.now() + 7 * 24 * 60 * 60 * 1000,
+          selectedCharacter: null,
+        }),
+        clearError: () => {},
       }}
     >
       {children}
@@ -180,11 +214,28 @@ export const useAuth = () => {
   return {
     address: '0x1234567890123456789012345678901234567890',
     isConnected: true,
+    isConnecting: false,
     isAuthenticated: true,
     isAuthenticating: false,
+    isHydrating: false,
+    hasHydrated: true,
+    hydrationStatus: 'matched',
+    session: {
+      address: '0x1234567890123456789012345678901234567890',
+      expires: Date.now() + 7 * 24 * 60 * 60 * 1000,
+      selectedCharacter: null,
+    },
+    siweStep: 'complete',
     error: null,
     connect: () => console.log('Mock connect'),
     disconnect: async () => console.log('Mock disconnect'),
+    authenticate: async () => console.log('Mock authenticate'),
+    refreshSession: async () => ({
+      address: '0x1234567890123456789012345678901234567890',
+      expires: Date.now() + 7 * 24 * 60 * 60 * 1000,
+      selectedCharacter: null,
+    }),
+    clearError: () => {},
   };
 };
 

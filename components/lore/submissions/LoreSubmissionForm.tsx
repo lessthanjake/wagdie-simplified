@@ -39,14 +39,6 @@ export interface LoreSubmissionFormProps {
   onSubmitted?: (detail: LoreSubmissionDetailDto) => void;
 }
 
-const defaultLink = (): EditableSubmissionLink => ({
-  url: '',
-  role: 'source_media',
-  displayTitle: '',
-  archivedUrl: '',
-  attribution: '',
-});
-
 export function linksToEditableLinks(links: LoreSubmissionLink[]): EditableSubmissionLink[] {
   const editable = links.map((link) => ({
     url: link.original_url || link.normalized_url,
@@ -210,6 +202,17 @@ export function LoreSubmissionForm({
     );
   }
 
+  if (auth.isHydrating) {
+    return (
+      <section className="rounded-xl border border-soul-accent/20 bg-soul-shadow/70 p-8 text-center">
+        <h2 className="font-display text-2xl text-soul-accent">Checking wallet session</h2>
+        <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-soul-mist/75">
+          Looking for an existing wallet session before asking for a signature.
+        </p>
+      </section>
+    );
+  }
+
   if (!auth.isAuthenticated) {
     return (
       <section className="rounded-xl border border-soul-accent/20 bg-soul-shadow/70 p-8 text-center">
@@ -218,7 +221,7 @@ export function LoreSubmissionForm({
           Sign a wallet message to create a session before sending lore to the review queue.
         </p>
         {auth.error && <p className="mt-3 text-sm text-soul-ember">{auth.error.message}</p>}
-        <Button type="button" onClick={auth.authenticate} isLoading={auth.isAuthenticating} className="mt-6">
+        <Button type="button" onClick={() => auth.authenticate({ force: true })} isLoading={auth.isAuthenticating} className="mt-6">
           Sign wallet message
         </Button>
       </section>

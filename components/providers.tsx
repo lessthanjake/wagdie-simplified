@@ -6,6 +6,7 @@ import { WagmiProvider } from 'wagmi'
 import { RainbowKitProvider, darkTheme } from '@rainbow-me/rainbowkit'
 import { config } from '@/lib/wagmi'
 import { TransactionProvider } from '@/contexts/TransactionContext'
+import { AuthProvider } from '@/contexts/AuthContext'
 import '@rainbow-me/rainbowkit/styles.css'
 
 import { ChatDockProvider, useChatDock } from '@/contexts/ChatDockContext'
@@ -38,15 +39,17 @@ export function Providers({ children }: { children: React.ReactNode }) {
             borderRadius: 'medium',
           })}
         >
-          <TransactionProvider>
-            <ChatDockProvider>
-              <ChatDockContentWrapper>
-                {children}
-              </ChatDockContentWrapper>
-              <ChatDock />
-              <ChatToggleButton />
-            </ChatDockProvider>
-          </TransactionProvider>
+          <AuthProvider>
+            <TransactionProvider>
+              <ChatDockProvider>
+                <ChatDockContentWrapper>
+                  {children}
+                </ChatDockContentWrapper>
+                <ChatDock />
+                <ChatToggleButton />
+              </ChatDockProvider>
+            </TransactionProvider>
+          </AuthProvider>
         </RainbowKitProvider>
       </QueryClientProvider>
     </WagmiProvider>

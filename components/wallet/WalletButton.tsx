@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/Button'
  * Displays wallet connection status and provides connect/disconnect functionality.
  */
 export function WalletButton() {
-  const { address, isConnected, isAuthenticating, connect, disconnect } = useAuth()
+  const { address, isConnected, isAuthenticating, isHydrating, connect, disconnect } = useAuth()
 
   const truncateAddress = (addr: string): string => {
     return `${addr.slice(0, 6)}...${addr.slice(-4)}`
@@ -32,7 +32,7 @@ export function WalletButton() {
     <Button
       variant="primary"
       onClick={connect}
-      isLoading={isAuthenticating}
+      isLoading={isAuthenticating || isHydrating}
     >
       Connect Wallet
     </Button>

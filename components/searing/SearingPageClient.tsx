@@ -203,7 +203,7 @@ function ResultPreview({
 
 export function SearingPageClient() {
   const { address, isConnected } = useAccount()
-  const { connect, isAuthenticating } = useAuth()
+  const { connect, isAuthenticating, isHydrating } = useAuth()
   const [selectedCharacterId, setSelectedCharacterId] = useState<number | null>(null)
   const [selectedConcord, setSelectedConcord] = useState<OwnedSearableConcord | null>(null)
   const [syncState, setSyncState] = useState<SearingSyncState>({ status: 'idle' })
@@ -411,7 +411,7 @@ export function SearingPageClient() {
             </p>
           </div>
           {!isConnected && (
-            <Button type="button" onClick={connect} isLoading={isAuthenticating}>
+            <Button type="button" onClick={connect} isLoading={isAuthenticating || isHydrating}>
               Connect Wallet
             </Button>
           )}
