@@ -1,100 +1,29 @@
 import type { Metadata } from 'next';
 import Image from 'next/image';
 
+import { LowPolyVideoExperience } from '@/components/videos/LowPolyVideoExperience';
 import { BannerHeader } from '@/components/shared/BannerHeader';
-import { AspectRatio } from '@/components/ui';
+import {
+  getLowPolyYoutubeUrl,
+  LOW_POLY_ASSETS,
+  LOW_POLY_EPISODES,
+} from '@/lib/content/lowPolyEpisodes';
 
 export const metadata: Metadata = {
   title: 'Low Poly Videos | WAGDIE',
   description: 'Watch the WAGDIE low poly YouTube episode series.',
 };
 
-type LowPolyEpisode = {
-  episode: number;
-  label: string;
-  youtubeUrl: string;
-  embedUrl: string;
-};
-
-const LOW_POLY_ASSETS = {
-  heroBanner: '/images/low-poly/low-poly-hero-banner.png',
-  mapBanner: '/images/low-poly/low-poly-map-banner.png',
-  logo: '/images/low-poly/low-poly-logo.webp',
-};
-
-const LOW_POLY_EPISODES: LowPolyEpisode[] = [
-  {
-    episode: 1,
-    label: 'EP1',
-    youtubeUrl: 'https://youtu.be/aWFCfmaZw8Q?si=2NvXo-JmRTg_YoC7',
-    embedUrl: 'https://www.youtube-nocookie.com/embed/aWFCfmaZw8Q?rel=0',
-  },
-  {
-    episode: 2,
-    label: 'EP2',
-    youtubeUrl: 'https://youtu.be/wmA1nplP03c?si=wWNeFYr0q2xf8XI-',
-    embedUrl: 'https://www.youtube-nocookie.com/embed/wmA1nplP03c?rel=0',
-  },
-  {
-    episode: 3,
-    label: 'EP3',
-    youtubeUrl: 'https://youtu.be/CxKhLK9Hsxs?si=3ec-sGFhvospUNEt',
-    embedUrl: 'https://www.youtube-nocookie.com/embed/CxKhLK9Hsxs?rel=0',
-  },
-  {
-    episode: 4,
-    label: 'EP4',
-    youtubeUrl: 'https://youtu.be/eGeLPMuUnFs?si=Bq4ddY-QBvgixdXJ',
-    embedUrl: 'https://www.youtube-nocookie.com/embed/eGeLPMuUnFs?rel=0',
-  },
-  {
-    episode: 5,
-    label: 'EP5',
-    youtubeUrl: 'https://youtu.be/V6u74ijg9BM?si=kqfxGZJXoEOAGsIn',
-    embedUrl: 'https://www.youtube-nocookie.com/embed/V6u74ijg9BM?rel=0',
-  },
-  {
-    episode: 6,
-    label: 'EP6',
-    youtubeUrl: 'https://youtu.be/rNUmrU7lStA?si=MS30hUhrF8licltd',
-    embedUrl: 'https://www.youtube-nocookie.com/embed/rNUmrU7lStA?rel=0',
-  },
-  {
-    episode: 7,
-    label: 'EP7',
-    youtubeUrl: 'https://youtu.be/lB1em8oVTfg?si=e2uKF_ounjttbnAL',
-    embedUrl: 'https://www.youtube-nocookie.com/embed/lB1em8oVTfg?rel=0',
-  },
-  {
-    episode: 8,
-    label: 'EP8',
-    youtubeUrl: 'https://youtu.be/uPB-6Pg0rnU?si=XD9i1nxG00UEf7_0',
-    embedUrl: 'https://www.youtube-nocookie.com/embed/uPB-6Pg0rnU?rel=0',
-  },
-  {
-    episode: 9,
-    label: 'EP9',
-    youtubeUrl: 'https://youtu.be/0y8Numq4lBc?si=lAvN31iLoXKP5-yn',
-    embedUrl: 'https://www.youtube-nocookie.com/embed/0y8Numq4lBc?rel=0',
-  },
-  {
-    episode: 10,
-    label: 'EP10',
-    youtubeUrl: 'https://youtu.be/7PuMsN5WLHk?si=NFgsJkrVgR-Sj6lk',
-    embedUrl: 'https://www.youtube-nocookie.com/embed/7PuMsN5WLHk?rel=0',
-  },
-];
-
 export default function LowPolyVideosPage() {
   return (
     <div className="min-h-screen bg-soul-950">
       <BannerHeader
         title="Low Poly Videos"
-        subtitle="Watch the WAGDIE low poly episode series."
+        subtitle="Enter the WAGDIE low poly series hub: choose an episode, open the theater, and watch the chronicle unfold."
       />
 
       <section className="relative overflow-hidden border-b border-neutral-800 bg-black">
-        <div className="relative h-[260px] md:h-[420px] lg:h-[520px]">
+        <div className="relative h-[240px] md:h-[360px] lg:h-[440px]">
           <Image
             src={LOW_POLY_ASSETS.heroBanner}
             alt="WAGDIE low poly animated series hero artwork"
@@ -103,79 +32,55 @@ export default function LowPolyVideosPage() {
             sizes="100vw"
             className="object-cover opacity-85"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-soul-950 via-soul-950/25 to-black/20" />
-        </div>
-      </section>
-
-      <section className="container mx-auto px-4 py-10 md:py-14 max-w-6xl">
-        <div className="mb-10 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.8fr)]">
-          <div className="rounded-lg border border-neutral-800 bg-black/40 p-6 md:p-8 shadow-2xl">
-            <Image
-              src={LOW_POLY_ASSETS.logo}
-              alt="WAGDIE the animated series logo"
-              width={628}
-              height={680}
-              className="mx-auto mb-6 h-auto w-52 md:w-64"
-            />
-            <p className="text-sm md:text-base text-neutral-500 font-eskapade leading-relaxed text-center lg:text-left">
-              Enter the low poly chronicle: ten embedded transmissions from the WAGDIE world,
-              gathered here for uninterrupted viewing.
-            </p>
-          </div>
-
-          <div className="overflow-hidden rounded-lg border border-neutral-800 bg-black/40 shadow-2xl">
-            <AspectRatio ratio={16 / 9}>
-              <Image
-                src={LOW_POLY_ASSETS.mapBanner}
-                alt="Low poly WAGDIE world map artwork"
-                fill
-                sizes="(min-width: 1024px) 450px, 100vw"
-                className="object-cover"
-              />
-            </AspectRatio>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {LOW_POLY_EPISODES.map((episode) => (
-            <article
-              key={episode.label}
-              className="group overflow-hidden rounded-lg border border-neutral-800 bg-black/40 shadow-2xl transition-colors duration-300 hover:border-soul-accent/40"
-            >
-              <div className="flex items-center justify-between gap-4 border-b border-neutral-800 px-5 py-4">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.24em] text-soul-accent/80 font-eskapade">
-                    {episode.label}
-                  </p>
-                  <h2 className="mt-1 text-xl font-display text-neutral-200 lowercase">
-                    Low Poly Episode {episode.episode}
-                  </h2>
-                </div>
+          <div className="absolute inset-0 bg-gradient-to-t from-soul-950 via-soul-950/30 to-black/20" />
+          <div className="absolute inset-x-0 bottom-0">
+            <div className="container mx-auto max-w-6xl px-4 pb-8 md:pb-10">
+              <div className="max-w-2xl rounded-lg border border-neutral-800 bg-black/55 p-5 shadow-2xl backdrop-blur-sm md:p-6">
+                <p className="font-eskapade text-xs uppercase tracking-[0.28em] text-soul-accent/80">
+                  Ten transmissions
+                </p>
+                <h2 className="mt-2 font-display text-3xl lowercase text-neutral-100 md:text-5xl">
+                  the low poly chronicle
+                </h2>
+                <p className="mt-3 font-eskapade text-sm leading-relaxed text-neutral-400 md:text-base">
+                  A focused theater for the WAGDIE Low Poly episodes. Pick a chapter, then load a single privacy-friendly YouTube player when you are ready to watch.
+                </p>
                 <a
-                  href={episode.youtubeUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="shrink-0 text-sm font-eskapade text-neutral-500 transition-colors hover:text-soul-accent"
+                  href="#low-poly-theater"
+                  className="mt-5 inline-flex border border-soul-accent/40 bg-soul-900 px-5 py-2 font-eskapade text-sm text-soul-accent transition-all hover:border-soul-accent hover:bg-soul-accent/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-soul-accent focus-visible:ring-offset-2 focus-visible:ring-offset-soul-950"
                 >
-                  YouTube
+                  Enter the theater
                 </a>
               </div>
-
-              <AspectRatio ratio={16 / 9} className="bg-black">
-                <iframe
-                  title={`WAGDIE Low Poly ${episode.label}`}
-                  src={episode.embedUrl}
-                  loading="lazy"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  allowFullScreen
-                  referrerPolicy="strict-origin-when-cross-origin"
-                  className="h-full w-full border-0"
-                />
-              </AspectRatio>
-            </article>
-          ))}
+            </div>
+          </div>
         </div>
       </section>
+
+      <main className="container mx-auto max-w-6xl px-4 py-10 md:py-14">
+        <LowPolyVideoExperience episodes={LOW_POLY_EPISODES} />
+
+        <noscript>
+          <section className="mt-10 rounded-lg border border-neutral-800 bg-black/40 p-6 shadow-2xl">
+            <h2 className="font-display text-2xl lowercase text-neutral-100">Direct episode links</h2>
+            <p className="mt-2 font-eskapade text-sm text-neutral-500">
+              JavaScript is disabled, so use these direct YouTube links to watch the Low Poly episodes.
+            </p>
+            <ul className="mt-5 grid gap-3 font-eskapade text-sm md:grid-cols-2">
+              {LOW_POLY_EPISODES.map((episode) => (
+                <li key={episode.id}>
+                  <a
+                    href={getLowPolyYoutubeUrl(episode.youtubeId)}
+                    className="text-soul-accent transition-colors hover:text-neutral-100"
+                  >
+                    {episode.label}: {episode.title}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </section>
+        </noscript>
+      </main>
     </div>
   );
 }

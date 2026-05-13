@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" role="img" aria-label="Low Poly Episode 2 thumbnail">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="hsl(274, 42%, 12%)"/>
+      <stop offset="0.55" stop-color="#050407"/>
+      <stop offset="1" stop-color="hsl(314, 68%, 18%)"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#9b6cff" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#f2d184" stop-opacity="0.32"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="720" fill="url(#bg)"/>
+  <path d="M0 560 180 360 340 460 520 250 740 410 910 210 1280 520v200H0z" fill="#0f0c14"/>
+  <path d="M0 610 240 470 410 540 620 350 830 510 1030 390 1280 600v120H0z" fill="#18111f"/>
+  <path d="M72 116h1136v488H72z" fill="none" stroke="#d7b56d" stroke-opacity="0.28" stroke-width="3"/>
+  <circle cx="640" cy="360" r="108" fill="url(#glow)" stroke="#d7b56d" stroke-opacity="0.48" stroke-width="3"/>
+  <path d="M614 303v114l98-57z" fill="#f4e7c5" fill-opacity="0.9"/>
+  <text x="96" y="118" fill="#d7b56d" fill-opacity="0.85" font-family="Georgia, serif" font-size="36" letter-spacing="12">WAGDIE LOW POLY</text>
+  <text x="96" y="642" fill="#f4e7c5" font-family="Georgia, serif" font-size="88" letter-spacing="8">EP 02</text>
+</svg>
