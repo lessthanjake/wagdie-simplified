@@ -57,3 +57,5 @@ volumes/wiki/files/
 volumes/wiki/import/
 
 scripts/indexer/state.json
+.env.production
+.env.prod
